@@ -2,6 +2,7 @@ import pyenki
 import random
 import time
 import numpy as np
+import matplotlib.pyplot as plt
 
 class MyEPuck(pyenki.EPuck):
 	
@@ -11,18 +12,26 @@ class MyEPuck(pyenki.EPuck):
 		self.timeout = 5 # set timer period
 		self.params = params
 
+		## Save robot info
+		self.xs = []
+		self.ys = []
+
 	# the EPuck's controller. You can't add args to this method, so any parameters you require must be set in init or other code
 	def controlStep(self, dt):
 		## Get robot's raw proximity sensor values
 		sensors = self.proximitySensorValues
-		## Scale sensor values down by factor of 1000, and then apply input weights
-		inputs = (np.multiply(sensors, self.params) / 1000).tolist()
+		## Scale sensor values down by factor of 1000
+		inputs = (0.001 * np.array(sensors)).tolist()
 		## Motor commands are taken from nn_controller function
-		commands = nn_controller(inputs, self.params)
+		commands = self.nn_controller(inputs, self.params)
 
 		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
 		self.leftSpeed = scale * commands[0]
 		self.rightSpeed = scale * commands[1]
+
+		## Save pos
+		self.xs.append(self.pos[0])
+		self.ys.append(self.pos[1])
 
 		# print some of the robot's data
 		if False: # set to True to print data
@@ -34,88 +43,135 @@ class MyEPuck(pyenki.EPuck):
 			print(len(self.cameraImage), self.cameraImage[0])
 			print(id(self), self.pos)
 			print()
-		
+			
+	def nn_controller(self, inputs, params):
+		"""
+			Neural network with forward propagation. No activation function.
+			:param inputs: List with sensor values
+			:param params: List with weights and bias values
+			:return left_speed_command: Left motor speed
+			:return right_speed_command: Right motor speed
+		"""
+
+		## Left motor speed
+		left_speed_command = 0
+		for i in range(8):
+			## Each sensor's contribution to left motor
+			left_speed_command += inputs[i] * params[i]
+		## Bias for left motor
+		left_speed_command += params[16]
+
+		## Right motor speed
+		right_speed_command = 0
+		for i in range(8):
+			## Each sensor's contribution to right motor
+			right_speed_command += inputs[i] * params[i]
+		## Bias for right motor
+		right_speed_command += params[17]	
+
+		# return motor speed commands to robot's controller
+		return [left_speed_command, right_speed_command]
+
 params = [0] * 18
 ## Left motor params
-params[0] = -1
-params[1] = -1
-params[2] = -0.5
-params[3] = -0.5
-params[4] = 0.5
-params[5] = 0.5
-params[6] = 1
-params[7] = 1
+params[0] = -4
+params[1] = -3
+params[2] = -1.5
+params[3] = -1.5
+params[4] = 1.5
+params[5] = 1.5
+params[6] = 3
+params[7] = 3
 ## Rigth motor params
-params[8] = 0.5
-params[9] = 0.5
-params[10] = 1
-params[11] = 1
-params[12] = -1
-params[13] = -1
-params[14] = -0.5
-params[15] = -0.5
+params[8] = 1.5
+params[9] = 1.5
+params[10] = 3
+params[11] = 3
+params[12] = -3
+params[13] = -4
+params[14] = -1.5
+params[15] = -1.5
 ## Bias terms
-params[16] = 1		## For left motor
-params[17] = 1		## For right motor
-    
-def nn_controller(inputs, params):
-	"""
-		Neural network with forward propagation. No activation function.
-		:param inputs: List with sensor values
-		:param params: List with weights and bias values
-		:return left_speed_command: Left motor speed
-		:return right_speed_command: Right motor speed
-	"""
-
-	## Left motor speed
-	left_speed_command = 0
-	for i in range(8):
-		## Each sensor's contribution to left motor
-		left_speed_command += inputs[i] * params[i]
-	## Bias for left motor
-	left_speed_command += params[16]
+params[16] = 2		## For left motor
+params[17] = 2		## For right motor
 	
-	## Right motor speed
-	right_speed_command = 0
-	for i in range(8):
-		## Each sensor's contribution to right motor
-		right_speed_command += inputs[i] * params[i]
-	## Bias for right motor
-	right_speed_command += params[17]	
+def display_board(x, y):
+	"""
+		Display the board with grid and the robot trajectory.
+		:param data: The robot trayectory. List of lists
+	"""
 
-	# return motor speed commands to robot's controller
-	return [left_speed_command, right_speed_command]
+	#~ width = 100
+	#~ height = 100
+
+	# Extract x and y coordinates from the list of lists
+	#~ x = [point[0] for point in data]
+	#~ y = [point[1] for point in data]
+
+	# Create plot
+	plt.figure(figsize=(10, 10))  # Set figure size
+	plt.plot(x, y, color = 'red')  # Plot a line connecting the data points
+
+	# Add horizontal and vertical lines at x=0 and y=0 to represent the axes
+	plt.axhline(0, color='black', linestyle='--', linewidth=0.5)
+	plt.axvline(0, color='black', linestyle='--', linewidth=0.5)
+
+	# Set labels and title
+	plt.xlabel('X-axis')
+	plt.ylabel('Y-axis')
+	plt.title('Robot trajectory')
+
+	# Set custom ticks for x-axis and y-axis to change grid size
+	plt.xticks(np.arange(-100, 100, 10))  # Set x-axis ticks at intervals of 10
+	plt.yticks(np.arange(-100, 100, 10))  # Set y-axis ticks at intervals of 10
+
+	# Set axis limits to ensure all quadrants are visible
+	plt.xlim(-100, 100)
+	plt.ylim(-100, 100)
+
+	# Show grid
+	plt.grid(True)
+
+	## Save plot
+	#~ plt.savefig("../../../Webots_Novelty_Search_Trajectory/First_Test.png")
+
+	# Show plot
+	plt.show()
 	
 def run_once(genome, print_stuff=False, view=False):
 
 	# create rectangular world - note that coordinate origin is corner of arena
 	w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
-	
+
 	# create a cylindrical object and add to world
 	c = pyenki.CircularObject(20, 30, 100, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
-	c.pos = (100, 100) # set cylinder's position: x, y
+	c.pos = (100, 50) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
 	w.addObject(c) # add cylinder to the world
 
 	# set up robot
 	e = MyEPuck(genome)
-	e.pos = (100, 60)
+	e.pos = (50, 60)
 	e.collisionElasticity = 0
 	w.addObject(e)
-	
+
 	# simulate
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1000):
+		for i in range(100): ##1000
 			w.step(0.1, 3)
 			if print_stuff:
 				print("A robot:", e.pos)
+				print("-----------------")
+				print(f"Cylinder pos: {c.pos}")
+
+		display_board(e.xs, e.ys)
 
 	# return robot
 	return e
 
-run_once(params, print_stuff=False, view=True)
+run_once(params, print_stuff=True, view=True)
 
 # create rectangular world - note that coordinate origin is corner of arena
 #~ w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
@@ -172,14 +228,14 @@ run_once(params, print_stuff=False, view=True)
 # w.run(20)
 
 ## Method 2b: Run simulation for consecutive periods of time in loop - NOT FULLY TESTED - I USE METHOD 3
-'''
-for i in range(100):
-	w.run(1)
-	print("Cylinder:", c.pos)
-	print("A robot:", pucks[0].pos)
-	print("Sensors:", pucks[0].proximitySensorValues)
-	print()
-'''
+
+#~ for i in range(100):
+	#~ w.run(1)
+	#~ print("Cylinder:", c.pos)
+	#~ print("A robot:", pucks[0].pos)
+	#~ print("Sensors:", pucks[0].proximitySensorValues)
+	#~ print()
+
 
 ## Method 3: Run simulation using world step method in a loop
 
@@ -189,5 +245,3 @@ for i in range(100):
 	#~ print("A robot:", pucks[0].pos)
 	#~ print("Sensors:", pucks[0].proximitySensorValues)
 	#~ print()
-	
-	
