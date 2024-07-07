@@ -3,12 +3,14 @@ import random
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import plotille
+from Grid import Grid
 
 class MyEPuck(pyenki.EPuck):
 	
 	# init EPuck. You can add any args and other code you need
-	def _init_(self, params):
-		super(MyEPuck, self)._init_()
+	def __init__(self, params):
+		super(MyEPuck, self).__init__()
 		self.timeout = 5 # set timer period
 		self.params = params
 
@@ -88,26 +90,26 @@ params = [0] * 18
 
 ## Aggressor
 ## Left motor params
-params[0] = -4
-params[1] = -3
-params[2] = -1.5
-params[3] = -1.5
-params[4] = 1.5
-params[5] = 1.5
-params[6] = 3
-params[7] = 3
+params[0] = 2
+params[1] = 2
+params[2] = 2
+params[3] = 2
+params[4] = 1
+params[5] = 1
+params[6] = 1
+params[7] = 1
 ## Rigth motor params
-params[8] = 1.5
-params[9] = 1.5
-params[10] = 3
-params[11] = 3
-params[12] = -3
-params[13] = -4
-params[14] = -1.5
-params[15] = -1.5
+params[8] = 1
+params[9] = 1
+params[10] = 1
+params[11] = 1
+params[12] = 2
+params[13] = 2
+params[14] = 2
+params[15] = 2
 ## Bias terms
-params[16] = 2		## For left motor
-params[17] = 2		## For right motor
+params[16] = 0.5		## For left motor
+params[17] = 0.5		## For right motor
 
 def display_board(x, y):
 	"""
@@ -153,12 +155,19 @@ def display_board(x, y):
 	plt.show()
 	
 def run_once(genome, print_stuff=False, view=False):
+	
+	## Set up grid
+	width = 200
+	height = 200
+	w_num = 10
+	h_num = 10
+	grid = Grid(0, width, 0, height, w_num, h_num)
 
 	# create rectangular world - note that coordinate origin is corner of arena
 	w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
 
 	# create a cylindrical object and add to world
-	c = pyenki.CircularObject(20, 30, 100, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
+	c = pyenki.CircularObject(20, 30, 1000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
 	c.pos = (100, 50) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
 	w.addObject(c) # add cylinder to the world
@@ -178,14 +187,33 @@ def run_once(genome, print_stuff=False, view=False):
 			if print_stuff:
 				print("A robot:", e.pos)
 				print("-----------------")
-				print(f"Cylinder pos: {c.pos}")
+				#~ print(f"Cylinder pos: {c.pos}")
+				#~ print(f"Cylinder pos type: {type(c.pos)}")
 
-		display_board(e.xs, e.ys)
+		#~ if plots:
+			## Plot the trajectory in the terminal
+			#~ fig = plotille.Figure()
+			#~ fig.width = 70
+			#~ fig.height = 30
+			#~ fig.set_x_limits(min_=0, max_=100)
+			#~ fig.set_y_limits(min_=0, max_=100)
+			#~ fig.color_mode = 'byte'
+			#~ grid.plotille_grid(fig)
+			#~ fig.plot(e.xs, e.ys, lc=25)
+			#~ print(fig.show())
 
-	# return robot
-	return e
+		# return robot and grid
+		return e, grid
 
-run_once(params, print_stuff=True, view=True)
+e, grid = run_once(params, print_stuff=True, view=False)
+
+## Plot trajectory
+plt.figure()
+plt.plot(e.xs, e.ys)
+grid.plot_grid()
+plt.title("Robot trajectory")
+plt.show()	
+
 
 #~ import datetime
 #~ today = datetime.date.today()
