@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 class MyEPuck(pyenki.EPuck):
 	
 	# init EPuck. You can add any args and other code you need
-	def __init__(self, params):
-		super(MyEPuck, self).__init__()
+	def _init_(self, params):
+		super(MyEPuck, self)._init_()
 		self.timeout = 5 # set timer period
 		self.params = params
 
@@ -24,6 +24,7 @@ class MyEPuck(pyenki.EPuck):
 		inputs = (0.001 * np.array(sensors)).tolist()
 		## Motor commands are taken from nn_controller function
 		commands = self.nn_controller(inputs, self.params)
+		#~ print(f"Commands: {commands}")
 
 		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
 		self.leftSpeed = scale * commands[0]
@@ -32,17 +33,6 @@ class MyEPuck(pyenki.EPuck):
 		## Save pos
 		self.xs.append(self.pos[0])
 		self.ys.append(self.pos[1])
-
-		# print some of the robot's data
-		if False: # set to True to print data
-			print('Control step')
-			print('pos: ' + str(self.pos))
-			print('IR dists: ' + str(self.proximitySensorDistances))
-			print('IR values: ' + str(self.proximitySensorValues))
-			print('Cam image: ' + str(self.cameraImage))
-			print(len(self.cameraImage), self.cameraImage[0])
-			print(id(self), self.pos)
-			print()
 			
 	def nn_controller(self, inputs, params):
 		"""
@@ -65,7 +55,7 @@ class MyEPuck(pyenki.EPuck):
 		right_speed_command = 0
 		for i in range(8):
 			## Each sensor's contribution to right motor
-			right_speed_command += inputs[i] * params[i]
+			right_speed_command += inputs[i] * params[8 + i]
 		## Bias for right motor
 		right_speed_command += params[17]	
 
@@ -73,6 +63,30 @@ class MyEPuck(pyenki.EPuck):
 		return [left_speed_command, right_speed_command]
 
 params = [0] * 18
+## Avoid objects
+#~ ## Left motor params
+#~ params[0] = -4
+#~ params[1] = -3
+#~ params[2] = -1.5
+#~ params[3] = -1.5
+#~ params[4] = 1.5
+#~ params[5] = 1.5
+#~ params[6] = 3
+#~ params[7] = 3
+#~ ## Rigth motor params
+#~ params[8] = 1.5
+#~ params[9] = 1.5
+#~ params[10] = 3
+#~ params[11] = 3
+#~ params[12] = -3
+#~ params[13] = -4
+#~ params[14] = -1.5
+#~ params[15] = -1.5
+#~ ## Bias terms
+#~ params[16] = 2		## For left motor
+#~ params[17] = 2		## For right motor
+
+## Aggressor
 ## Left motor params
 params[0] = -4
 params[1] = -3
@@ -94,7 +108,7 @@ params[15] = -1.5
 ## Bias terms
 params[16] = 2		## For left motor
 params[17] = 2		## For right motor
-	
+
 def display_board(x, y):
 	"""
 		Display the board with grid and the robot trajectory.
@@ -172,6 +186,15 @@ def run_once(genome, print_stuff=False, view=False):
 	return e
 
 run_once(params, print_stuff=True, view=True)
+
+#~ import datetime
+#~ today = datetime.date.today()
+
+#~ # List of all attributes and methods
+#~ print(dir(today))
+
+#~ # Get detailed help information
+#~ help(today)
 
 # create rectangular world - note that coordinate origin is corner of arena
 #~ w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
