@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotille
 from Grid import Grid
+import math
+from my_GA import *
 
 class MyEPuck(pyenki.EPuck):
 	
@@ -111,49 +113,17 @@ params[15] = 2
 params[16] = 0.5		## For left motor
 params[17] = 0.5		## For right motor
 
-def display_board(x, y):
+def fitness_calculate_distance(x1, y1, x2, y2):
 	"""
-		Display the board with grid and the robot trajectory.
-		:param data: The robot trayectory. List of lists
+		Euclidean distance between two points.
+		:param x1: Initial position in x.
+		:param y1: Initial position in y.
+		:param x2: Final position in x.
+		:param y2: Final position in y.
+		:return: Euclidean distance between two points.
 	"""
+	return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-	#~ width = 100
-	#~ height = 100
-
-	# Extract x and y coordinates from the list of lists
-	#~ x = [point[0] for point in data]
-	#~ y = [point[1] for point in data]
-
-	# Create plot
-	plt.figure(figsize=(10, 10))  # Set figure size
-	plt.plot(x, y, color = 'red')  # Plot a line connecting the data points
-
-	# Add horizontal and vertical lines at x=0 and y=0 to represent the axes
-	plt.axhline(0, color='black', linestyle='--', linewidth=0.5)
-	plt.axvline(0, color='black', linestyle='--', linewidth=0.5)
-
-	# Set labels and title
-	plt.xlabel('X-axis')
-	plt.ylabel('Y-axis')
-	plt.title('Robot trajectory')
-
-	# Set custom ticks for x-axis and y-axis to change grid size
-	plt.xticks(np.arange(-100, 100, 10))  # Set x-axis ticks at intervals of 10
-	plt.yticks(np.arange(-100, 100, 10))  # Set y-axis ticks at intervals of 10
-
-	# Set axis limits to ensure all quadrants are visible
-	plt.xlim(-100, 100)
-	plt.ylim(-100, 100)
-
-	# Show grid
-	plt.grid(True)
-
-	## Save plot
-	#~ plt.savefig("../../../Webots_Novelty_Search_Trajectory/First_Test.png")
-
-	# Show plot
-	plt.show()
-	
 def run_once(genome, print_stuff=False, view=False):
 	
 	## Set up grid
@@ -171,6 +141,9 @@ def run_once(genome, print_stuff=False, view=False):
 	c.pos = (100, 50) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
 	w.addObject(c) # add cylinder to the world
+	## Store cylinder pos
+	c_xs = []
+	c_ys = []
 
 	# set up robot
 	e = MyEPuck(genome)
@@ -182,13 +155,17 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(100): ##1000
+		for i in range(1000): ##1000
 			w.step(0.1, 3)
 			if print_stuff:
-				print("A robot:", e.pos)
-				print("-----------------")
+				#~ print("A robot:", e.pos)
+				#~ print("-----------------")
 				#~ print(f"Cylinder pos: {c.pos}")
 				#~ print(f"Cylinder pos type: {type(c.pos)}")
+				c_xs.append(c.pos[0])
+				c_ys.append(c.pos[1])
+				#~ print(f"C_xs: {c_xs}")
+				#~ print(f"C_ys: {c_ys}")
 
 		#~ if plots:
 			## Plot the trajectory in the terminal
@@ -203,16 +180,70 @@ def run_once(genome, print_stuff=False, view=False):
 			#~ print(fig.show())
 
 		# return robot and grid
-		return e, grid
+		return e, grid, c_xs, c_ys
+		
+num_gens = 2
+POPULATION_SIZE = 10
+GENOTYPE_SIZE = 18
+## Weights, bias bounds
+weights_bias_range = np.arange(-5, 5, 0.5)
 
-e, grid = run_once(params, print_stuff=True, view=False)
+def run_optimization(population):
+	
+	print("---\n")
+	print("Starting optimization")
+	print("Population Size %i, Genome Size %i"%(POPULATION_SIZE, GENOTYPE_SIZE))
+	
+	## list to store average fitness
+	average_fitness_over_time = []
+	
+	## Run GA for a fixed number of generations
+	for gen in range(num_gens):
+		population_fitness = []
+		for ind in range(POPULATION_SIZE):
+			print("----------------------------------------")
+			print("Generation %i, Genotype %i "%(gen, ind))
+		
+			## Get genotype from population
+			genotype = population[ind]
+			
+			print(f"Run optimization, genotype sent: {genotype}")
+			
+			##Evaluate genotype
+			e, grid, c_xs, c_ys = run_once(params, print_stuff=True, view=False)
+			
+			##Evaluate fitness
+			fitness = fitness_calculate_distance(50, 60, cylinder_final_pos[0], cylinder_final_pos[1])
+			
+			## Add fitness to population fitness
+			population_fitness.append(fitness)
 
-## Plot trajectory
-plt.figure()
-plt.plot(e.xs, e.ys)
-grid.plot_grid()
-plt.title("Robot trajectory")
-plt.show()	
+def main():
+	
+	## Create initial population
+	population = create_random_parameters_set(POPULATION_SIZE, GENOTYPE_SIZE, weights_bias_range)
+	
+	#~ print(f"c_xs: {c_xs}")
+	#~ print(f"c_ys: {c_ys}")
+
+	## Plot robot trajectory
+	plt.figure()
+	plt.plot(e.xs, e.ys)
+	grid.plot_grid()
+	plt.title("Robot trajectory")
+	#~ plt.show()
+
+	## Plot cylinder trajectory
+	## Final cylinder position
+	cylinder_final_pos = (c_xs[-1], c_ys[-1])
+	## Calculate the Eucliden distance between initial and final position
+	final_distance = fitness_calculate_distance(50, 60, cylinder_final_pos[0], cylinder_final_pos[1])
+	print(f"Final distance: {final_distance}")
+	plt.figure()
+	plt.plot(c_xs, c_ys)
+	grid.plot_grid()
+	plt.title("Cylinder trajectory")
+	plt.show()
 
 
 #~ import datetime
