@@ -37,7 +37,7 @@ class MyEPuck(pyenki.EPuck):
 		## Save pos
 		self.xs.append(self.pos[0])
 		self.ys.append(self.pos[1])
-			
+		
 	def nn_controller(self, inputs, params):
 		"""
 			Neural network with forward propagation. No activation function.
@@ -66,53 +66,6 @@ class MyEPuck(pyenki.EPuck):
 		# return motor speed commands to robot's controller
 		return [left_speed_command, right_speed_command]
 
-params = [0] * 18
-## Avoid objects
-#~ ## Left motor params
-#~ params[0] = -4
-#~ params[1] = -3
-#~ params[2] = -1.5
-#~ params[3] = -1.5
-#~ params[4] = 1.5
-#~ params[5] = 1.5
-#~ params[6] = 3
-#~ params[7] = 3
-#~ ## Rigth motor params
-#~ params[8] = 1.5
-#~ params[9] = 1.5
-#~ params[10] = 3
-#~ params[11] = 3
-#~ params[12] = -3
-#~ params[13] = -4
-#~ params[14] = -1.5
-#~ params[15] = -1.5
-#~ ## Bias terms
-#~ params[16] = 2		## For left motor
-#~ params[17] = 2		## For right motor
-
-## Aggressor
-## Left motor params
-params[0] = 2
-params[1] = 2
-params[2] = 2
-params[3] = 2
-params[4] = 1
-params[5] = 1
-params[6] = 1
-params[7] = 1
-## Rigth motor params
-params[8] = 1
-params[9] = 1
-params[10] = 1
-params[11] = 1
-params[12] = 2
-params[13] = 2
-params[14] = 2
-params[15] = 2
-## Bias terms
-params[16] = 0.5		## For left motor
-params[17] = 0.5		## For right motor
-
 def fitness_calculate_distance(x1, y1, x2, y2):
 	"""
 		Euclidean distance between two points.
@@ -137,9 +90,9 @@ def run_once(genome, print_stuff=False, view=False):
 	w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
 
 	# create a cylindrical object and add to world
-	c = pyenki.CircularObject(20, 30, 1000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
-	c.pos = (100, 50) # set cylinder's position: x, y
-	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
+	c = pyenki.CircularObject(20, 30, 100, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
+	c.pos = (80, 50) # set cylinder's position: x, y
+	c.collisionElasticity = 1 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
 	w.addObject(c) # add cylinder to the world
 	## Store cylinder pos
 	c_xs = []
@@ -181,6 +134,53 @@ def run_once(genome, print_stuff=False, view=False):
 
 		# return robot and grid
 		return e, grid, c_xs, c_ys
+
+params = [0] * 18
+## Avoid objects
+#~ ## Left motor params
+#~ params[0] = -4
+#~ params[1] = -3
+#~ params[2] = -1.5
+#~ params[3] = -1.5
+#~ params[4] = 1.5
+#~ params[5] = 1.5
+#~ params[6] = 3
+#~ params[7] = 3
+#~ ## Rigth motor params
+#~ params[8] = 1.5
+#~ params[9] = 1.5
+#~ params[10] = 3
+#~ params[11] = 3
+#~ params[12] = -3
+#~ params[13] = -4
+#~ params[14] = -1.5
+#~ params[15] = -1.5
+#~ ## Bias terms
+#~ params[16] = 2		## For left motor
+#~ params[17] = 2		## For right motor
+
+## Aggressor
+## Left motor params
+#~ params[0] = 2
+#~ params[1] = 2
+#~ params[2] = 2
+#~ params[3] = 2
+#~ params[4] = 1
+#~ params[5] = 1
+#~ params[6] = 1
+#~ params[7] = 1
+#~ ## Rigth motor params
+#~ params[8] = 1
+#~ params[9] = 1
+#~ params[10] = 1
+#~ params[11] = 1
+#~ params[12] = 2
+#~ params[13] = 2
+#~ params[14] = 2
+#~ params[15] = 2
+#~ ## Bias terms
+#~ params[16] = 0.5		## For left motor
+#~ params[17] = 0.5		## For right motor
 		
 num_gens = 2
 POPULATION_SIZE = 10
@@ -212,38 +212,69 @@ def run_optimization(population):
 			##Evaluate genotype
 			e, grid, c_xs, c_ys = run_once(params, print_stuff=True, view=False)
 			
+			## Final cylinder position
+			cylinder_final_pos = (c_xs[-1], c_ys[-1])
+			
 			##Evaluate fitness
 			fitness = fitness_calculate_distance(50, 60, cylinder_final_pos[0], cylinder_final_pos[1])
 			
 			## Add fitness to population fitness
 			population_fitness.append(fitness)
+			
+			print(f"Population fitness: {population_fitness}")
+			
+			#~ print(f"c_xs: {c_xs}")
+			#~ print(f"c_ys: {c_ys}")
+
+			#~ ## Plot robot trajectory
+			#~ plt.figure()
+			#~ plt.plot(e.xs, e.ys)
+			#~ grid.plot_grid()
+			#~ plt.title("Robot trajectory")
+			#~ plt.show()
+
+			#~ ## Plot cylinder trajectory
+			#~ ## Calculate the Eucliden distance between initial and final position
+			#~ final_distance = fitness_calculate_distance(50, 60, cylinder_final_pos[0], cylinder_final_pos[1])
+			#~ print(f"Final distance: {final_distance}")
+			#~ plt.figure()
+			#~ plt.plot(c_xs, c_ys)
+			#~ grid.plot_grid()
+			#~ plt.title("Cylinder trajectory")
+			#~ plt.show()
+			
+		best_fitness, best_fitness_val = population_get_fittest(population, population_fitness)
+		average_fitness = population_get_average_fitness(population_fitness)
+		print(f"Best Fitness params: {best_fitness}")
+		print(f"Best Fitness value: {best_fitness_val}")
+		print(f"Average Fitness: {average_fitness}")
+		
+		## Store average fitness over generations
+		average_fitness_over_time.append(average_fitness)
+		
+		if(gen < num_gens-1):
+			population = population_reproduce(population, population_fitness, GENOTYPE_SIZE)
+			print(f"New population: {population}")
+
+	return best_fitness, best_fitness_val, average_fitness_over_time	
 
 def main():
 	
 	## Create initial population
 	population = create_random_parameters_set(POPULATION_SIZE, GENOTYPE_SIZE, weights_bias_range)
 	
-	#~ print(f"c_xs: {c_xs}")
-	#~ print(f"c_ys: {c_ys}")
+	## Run optimization
+	fittest_params, fittest_fitness, average_fitness_over_time = run_optimization(population)
+	
+	print("------------------------------------")
+	print(f"Best Fitness Params All Time: {fittest_params}")
+	print(f"Best Fitness Value All Time: {fittest_fitness}")
+	print(f"Average Fitness Per generation All Time: {average_fitness_over_time}")
+	print("Average Fitness All Time: ", sum(average_fitness_over_time)/len(average_fitness_over_time))
+	
+	e, grid, c_xs, c_ys = run_once(fittest_params, print_stuff=True, view=True)
 
-	## Plot robot trajectory
-	plt.figure()
-	plt.plot(e.xs, e.ys)
-	grid.plot_grid()
-	plt.title("Robot trajectory")
-	#~ plt.show()
-
-	## Plot cylinder trajectory
-	## Final cylinder position
-	cylinder_final_pos = (c_xs[-1], c_ys[-1])
-	## Calculate the Eucliden distance between initial and final position
-	final_distance = fitness_calculate_distance(50, 60, cylinder_final_pos[0], cylinder_final_pos[1])
-	print(f"Final distance: {final_distance}")
-	plt.figure()
-	plt.plot(c_xs, c_ys)
-	grid.plot_grid()
-	plt.title("Cylinder trajectory")
-	plt.show()
+main()
 
 
 #~ import datetime
