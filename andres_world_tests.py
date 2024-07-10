@@ -34,6 +34,10 @@ class MyEPuck(pyenki.EPuck):
 		self.leftSpeed = scale * commands[0]
 		self.rightSpeed = scale * commands[1]
 
+		## Test object
+		#~ self.leftSpeed = 5
+		#~ self.rightSpeed = 5
+
 		## Save pos
 		self.xs.append(self.pos[0])
 		self.ys.append(self.pos[1])
@@ -90,10 +94,11 @@ def run_once(genome, print_stuff=False, view=False):
 	w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
 
 	# create a cylindrical object and add to world
-	c = pyenki.CircularObject(20, 30, 100, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
+	c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
 	c.pos = (80, 50) # set cylinder's position: x, y
-	c.collisionElasticity = 1 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
+	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
 	w.addObject(c) # add cylinder to the world
+
 	## Store cylinder pos
 	c_xs = []
 	c_ys = []
@@ -108,8 +113,10 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1000): ##1000
+		for i in range(5000): ##1000
 			w.step(0.1, 3)
+			#~ c_xs.append(c.pos[0])
+			#~ c_ys.append(c.pos[1])
 			if print_stuff:
 				#~ print("A robot:", e.pos)
 				#~ print("-----------------")
@@ -121,16 +128,25 @@ def run_once(genome, print_stuff=False, view=False):
 				#~ print(f"C_ys: {c_ys}")
 
 		#~ if plots:
-			## Plot the trajectory in the terminal
-			#~ fig = plotille.Figure()
-			#~ fig.width = 70
-			#~ fig.height = 30
-			#~ fig.set_x_limits(min_=0, max_=100)
-			#~ fig.set_y_limits(min_=0, max_=100)
-			#~ fig.color_mode = 'byte'
-			#~ grid.plotille_grid(fig)
-			#~ fig.plot(e.xs, e.ys, lc=25)
-			#~ print(fig.show())
+		## Plot the trajectory in the terminal
+		#~ fig = plotille.Figure()
+		#~ fig.width = 70
+		#~ fig.height = 30
+		#~ fig.set_x_limits(min_=0, max_=100)
+		#~ fig.set_y_limits(min_=0, max_=100)
+		#~ fig.color_mode = 'byte'
+		#~ grid.plotille_grid(fig)
+		#~ fig.plot(e.xs, e.ys, lc=25)
+		#~ print(fig.show())
+		
+		print(f"Robot position: {e.pos}")
+		
+		## Plot robot trajectory
+		#~ plt.figure()
+		#~ plt.plot(e.xs, e.ys)
+		#~ grid.plot_grid()
+		#~ plt.title("Robot trajectory")
+		#~ plt.show()
 
 		# return robot and grid
 		return e, grid, c_xs, c_ys
@@ -181,9 +197,9 @@ params = [0] * 18
 #~ ## Bias terms
 #~ params[16] = 0.5		## For left motor
 #~ params[17] = 0.5		## For right motor
-		
-num_gens = 2
-POPULATION_SIZE = 10
+
+num_gens = 250
+POPULATION_SIZE = 40
 GENOTYPE_SIZE = 18
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
@@ -210,13 +226,14 @@ def run_optimization(population):
 			print(f"Run optimization, genotype sent: {genotype}")
 			
 			##Evaluate genotype
-			e, grid, c_xs, c_ys = run_once(params, print_stuff=True, view=False)
+			e, grid, c_xs, c_ys = run_once(genotype, print_stuff=True, view=False)
 			
 			## Final cylinder position
 			cylinder_final_pos = (c_xs[-1], c_ys[-1])
+			print(f"Cylinder final pos: X:{cylinder_final_pos[0]}, Y:{cylinder_final_pos[1]}")
 			
 			##Evaluate fitness
-			fitness = fitness_calculate_distance(50, 60, cylinder_final_pos[0], cylinder_final_pos[1])
+			fitness = fitness_calculate_distance(80, 50, cylinder_final_pos[0], cylinder_final_pos[1])
 			
 			## Add fitness to population fitness
 			population_fitness.append(fitness)
@@ -318,7 +335,7 @@ main()
 ## For e-puck in position [1]
 #~ ir_values_list = pucks[1].proximitySensorValues()
 #~ left_speed, right_speed = nn_controller(ir_values_list, params)
-	
+
 # create a cylindrical object and add to world
 #~ c = pyenki.CircularObject(20, 30, 100, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
 #~ c.pos = (100, 100) # set cylinder's position: x, y
