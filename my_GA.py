@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 MUTATION_PROBABILITY = 0.1
-FIXED_BIAS = False
+FIXED_BIAS = False			## False is better 
 BOUNDS = 5
 ELITE_PART = 0.4
 
@@ -19,8 +19,8 @@ def create_random_parameters_set(pop_size, geno_size, weights_bias_range):
         for ind in range(len(genotype)):
             if FIXED_BIAS:
                 genotype[ind] = random.choice(weights_bias_range)
-                genotype[4] = 2
-                genotype[9] = 2
+                genotype[16] = 5
+                genotype[17] = 5
             else:
                 genotype[ind] = random.choice(weights_bias_range)
         population[pop_ind] = genotype
@@ -78,7 +78,7 @@ def population_reproduce(p,fitness, n_genes):
     dataframe = dataframe.sort_values(['Fitness'], ascending=False)
     dataframe = dataframe.reset_index(drop=True)
 
-    # print("Data frame: ", dataframe)
+    #~ print("Data frame: ", dataframe)
 
     # print("input population: ", p)
 
@@ -137,8 +137,8 @@ def crossover(p1,p2, n_genes, pop):
             crossover.append(p1[i])
 
     if FIXED_BIAS:
-        crossover[4] = 2
-        crossover[9] = 2
+        crossover[16] = 5
+        crossover[17] = 5
 
     return crossover
 
@@ -150,14 +150,14 @@ def mutate(child, n_genes, FIXED_BIAS):
     if FIXED_BIAS:
 
         ## Set bias values to 2
-        child[4] = 2
-        child[9] = 2
+        child[16] = 5
+        child[17] = 5
 
         for gene_no in range(n_genes):
             if np.random.rand() < MUTATION_PROBABILITY:
-                ## Gene 4 is bias for left motor
-                ## Gene 9 is bias for right motor
-                if gene_no == 4 or gene_no == 9:
+                ## Gene 16 is bias for left motor
+                ## Gene 17 is bias for right motor
+                if gene_no == 16 or gene_no == 17:
                     child[gene_no] = child[gene_no]
                 else:
                     child[gene_no] = random_number_close_range(child[gene_no], 1, BOUNDS)
