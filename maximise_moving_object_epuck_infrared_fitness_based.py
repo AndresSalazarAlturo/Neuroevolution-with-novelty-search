@@ -199,7 +199,7 @@ params = [0] * 18
 #~ params[17] = 0.5		## For right motor
 
 num_gens = 250
-POPULATION_SIZE = 40
+POPULATION_SIZE = 10
 GENOTYPE_SIZE = 18
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
@@ -219,7 +219,7 @@ def run_optimization(population):
 		for ind in range(POPULATION_SIZE):
 			print("----------------------------------------")
 			print("Generation %i, Genotype %i "%(gen, ind))
-		
+
 			## Get genotype from population
 			genotype = population[ind]
 			
