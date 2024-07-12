@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import plotille
 from Grid import Grid
 import math
-from my_GA import *
+from my_GA_cam_based import *
 
 class MyEPuck(pyenki.EPuck):
 	
@@ -24,45 +24,49 @@ class MyEPuck(pyenki.EPuck):
 	def controlStep(self, dt):
 
 		## Get robot's camera values
-		print('Cam image: ' + str(self.cameraImage))
-		print(len(self.cameraImage), self.cameraImage[0])
+		#~ print('Cam image: ' + str(self.cameraImage))
+		#~ print(len(self.cameraImage), self.cameraImage[0])
 
 		camera_obj = self.cameraImage
 		#~ for pixel in range(len(camera_obj)):
 			#~ print(f"Camera pixel #{pixel + 1}: {camera_obj[pixel]}")
 			#~ print("---------------------------")
 			
-		print("Camera obj: ", dir(camera_obj))
-		print("------------------------------------------------------------")
-		print("Color instance: ", dir(camera_obj[0]))
-		print("------------------------------------------------------------")
-		print("Other instance: ", dir(camera_obj[0].components), "\n Obj --> ", camera_obj[0].components, "\n Class type --> ", type(camera_obj[0].components))
-		print("------------------------------------------------------------")
-		print("Index: ", dir(camera_obj[0].components.index), "\n Index Value --> ", camera_obj[0].components.index)
-		print("------------------------------------------------------------")
-		print("Count: ", dir(camera_obj[0].components.count), "\n Count Value --> ", camera_obj[0].components.count)
-		print("------------------------------------------------------------")
+		#~ print("Camera obj: ", dir(camera_obj))
+		#~ print("------------------------------------------------------------")
+		#~ print("Color instance: ", dir(camera_obj[0]), "\n To Gray: ", camera_obj[0].toGray())
+		#~ print("------------------------------------------------------------")
+		#~ print("Other instance: ", dir(camera_obj[0].components), "\n Obj --> ", camera_obj[0].components, "\n Class type --> ", type(camera_obj[0].components))
+		#~ print("------------------------------------------------------------")
+		#~ print("Index: ", dir(camera_obj[0].components.index), "\n Index Value --> ", camera_obj[0].components.index)
+		#~ print("------------------------------------------------------------")
+		#~ print("Count: ", dir(camera_obj[0].components.count), "\n Count Value --> ", camera_obj[0].components.count)
+		#~ print("------------------------------------------------------------")
 		#~ help(camera_obj)
 
-		#~ ## Get robot's raw proximity sensor values
-		#~ sensors = self.proximitySensorValues
-		#~ ## Scale sensor values down by factor of 1000
-		#~ inputs = (0.001 * np.array(sensors)).tolist()
-		#~ ## Motor commands are taken from nn_controller function
-		#~ commands = self.nn_controller(inputs, self.params)
-		#~ print(f"Commands: {commands}")
+		inputs = []
+		## Extract gray values
+		for pixel in range(len(camera_obj)):
+			#~ print(f"Camera ToGray pixel #{pixel + 1}: {camera_obj[pixel].toGray()}")
+			inputs.append(camera_obj[pixel].toGray())
+			
+		#~ print(f"Inputs: {inputs}")
 
-		#~ scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
-		#~ self.leftSpeed = scale * commands[0]
-		#~ self.rightSpeed = scale * commands[1]
+		## Motor commands are taken from nn_controller function
+		commands = self.nn_controller(inputs, self.params)
+		#~ print(f"Commands: {commands}")
+		
+		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
+		self.leftSpeed = scale * commands[0]
+		self.rightSpeed = scale * commands[1]
 
 		## Test object
 		#~ self.leftSpeed = 5
 		#~ self.rightSpeed = 5
 
 		## Save pos
-		#~ self.xs.append(self.pos[0])
-		#~ self.ys.append(self.pos[1])
+		self.xs.append(self.pos[0])
+		self.ys.append(self.pos[1])
 		
 	def nn_controller(self, inputs, params):
 		"""
@@ -75,19 +79,19 @@ class MyEPuck(pyenki.EPuck):
 
 		## Left motor speed
 		left_speed_command = 0
-		for i in range(8):
+		for i in range(60):
 			## Each sensor's contribution to left motor
 			left_speed_command += inputs[i] * params[i]
 		## Bias for left motor
-		left_speed_command += params[16]
+		left_speed_command += params[120]
 
 		## Right motor speed
 		right_speed_command = 0
-		for i in range(8):
+		for i in range(60):
 			## Each sensor's contribution to right motor
-			right_speed_command += inputs[i] * params[8 + i]
+			right_speed_command += inputs[i] * params[60 + i]
 		## Bias for right motor
-		right_speed_command += params[17]	
+		right_speed_command += params[121]	
 
 		# return motor speed commands to robot's controller
 		return [left_speed_command, right_speed_command]
@@ -117,10 +121,11 @@ def run_once(genome, print_stuff=False, view=False):
 
 	# create a cylindrical object and add to world
 	c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
-	c.pos = (80, 50) # set cylinder's position: x, y
+	#~ c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(0, 0, 0, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
+	c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
 	w.addObject(c) # add cylinder to the world
-
+	
 	## Store cylinder pos
 	c_xs = []
 	c_ys = []
@@ -135,7 +140,7 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1): ##1000
+		for i in range(2000): ##1000
 			w.step(0.1, 3)
 			#~ c_xs.append(c.pos[0])
 			#~ c_ys.append(c.pos[1])
@@ -173,56 +178,13 @@ def run_once(genome, print_stuff=False, view=False):
 		# return robot and grid
 		return e, grid, c_xs, c_ys
 
-params = [0] * 18
-## Avoid objects
-#~ ## Left motor params
-#~ params[0] = -4
-#~ params[1] = -3
-#~ params[2] = -1.5
-#~ params[3] = -1.5
-#~ params[4] = 1.5
-#~ params[5] = 1.5
-#~ params[6] = 3
-#~ params[7] = 3
-#~ ## Rigth motor params
-#~ params[8] = 1.5
-#~ params[9] = 1.5
-#~ params[10] = 3
-#~ params[11] = 3
-#~ params[12] = -3
-#~ params[13] = -4
-#~ params[14] = -1.5
-#~ params[15] = -1.5
-#~ ## Bias terms
-#~ params[16] = 2		## For left motor
-#~ params[17] = 2		## For right motor
+## 80, 50
+initial_cylinder_pos = [100, 140]
 
-## Aggressor
-## Left motor params
-params[0] = 2
-params[1] = 2
-params[2] = 2
-params[3] = 2
-params[4] = 1
-params[5] = 1
-params[6] = 1
-params[7] = 1
-## Rigth motor params
-params[8] = 1
-params[9] = 1
-params[10] = 1
-params[11] = 1
-params[12] = 2
-params[13] = 2
-params[14] = 2
-params[15] = 2
-## Bias terms
-params[16] = 0.5		## For left motor
-params[17] = 0.5		## For right motor
-
-num_gens = 250
-POPULATION_SIZE = 10
-GENOTYPE_SIZE = 18
+params = [0] * 122
+num_gens = 150
+POPULATION_SIZE = 40
+GENOTYPE_SIZE = 122
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
 
@@ -231,7 +193,7 @@ def run_optimization(population):
 	print("---\n")
 	print("Starting optimization")
 	print("Population Size %i, Genome Size %i"%(POPULATION_SIZE, GENOTYPE_SIZE))
-	
+
 	## list to store average fitness
 	average_fitness_over_time = []
 	
@@ -252,15 +214,16 @@ def run_optimization(population):
 			
 			## Final cylinder position
 			cylinder_final_pos = (c_xs[-1], c_ys[-1])
-			print(f"Cylinder final pos: X:{cylinder_final_pos[0]}, Y:{cylinder_final_pos[1]}")
+			#~ print(f"Cylinder final pos: X:{cylinder_final_pos[0]}, Y:{cylinder_final_pos[1]}")
 			
 			##Evaluate fitness
-			fitness = fitness_calculate_distance(80, 50, cylinder_final_pos[0], cylinder_final_pos[1])
+			fitness = fitness_calculate_distance(initial_cylinder_pos[0], initial_cylinder_pos[1], cylinder_final_pos[0], 
+													cylinder_final_pos[1])
 			
 			## Add fitness to population fitness
 			population_fitness.append(fitness)
 			
-			print(f"Population fitness: {population_fitness}")
+			#~ print(f"Population fitness: {population_fitness}")
 			
 			#~ print(f"c_xs: {c_xs}")
 			#~ print(f"c_ys: {c_ys}")
@@ -301,6 +264,7 @@ def main():
 	
 	## Create initial population
 	population = create_random_parameters_set(POPULATION_SIZE, GENOTYPE_SIZE, weights_bias_range)
+	#~ print(f"Initial population: {population}")
 	
 	## Run optimization
 	fittest_params, fittest_fitness, average_fitness_over_time = run_optimization(population)
@@ -313,21 +277,12 @@ def main():
 	
 	e, grid, c_xs, c_ys = run_once(fittest_params, print_stuff=True, view=True)
 
-#~ main()
+main()
 
-## Test Camera information
+## Test Camera information ##
 
 ## This are fixed params to test
-e, grid, c_xs, c_ys = run_once(params, print_stuff=True, view=False)
-
-#~ import datetime
-#~ today = datetime.date.today()
-
-#~ # List of all attributes and methods
-#~ print(dir(today))
-
-#~ # Get detailed help information
-#~ help(today)
+#~ e, grid, c_xs, c_ys = run_once(params, print_stuff=True, view=False)
 
 # create rectangular world - note that coordinate origin is corner of arena
 #~ w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
