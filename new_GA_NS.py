@@ -10,6 +10,8 @@ ELITE_PART = 0.4
 def create_random_parameters_set(pop_size, geno_size, weights_bias_range):
     """
         Create random parameters set.
+        :param pop_size: Population size
+        :param geno_size: Genotype size
         :param weights_bias_range: Range with the possible values
         :return population: List of list with the genotypes
     """
@@ -19,21 +21,22 @@ def create_random_parameters_set(pop_size, geno_size, weights_bias_range):
         for ind in range(len(genotype)):
             if FIXED_BIAS:
                 genotype[ind] = random.choice(weights_bias_range)
-                genotype[4] = 2
-                genotype[9] = 2
+                genotype[120] = 5
+                genotype[121] = 5
             else:
                 genotype[ind] = random.choice(weights_bias_range)
         population[pop_ind] = genotype
     return population
 
-def create_random_single_parameters_set(weights_bias_range):
+def create_random_single_parameters_set(weights_bias_range, geno_size):
     """
-        Create random parameters set.
+        Create random parameter set.
         :param weights_bias_range: Range with the possible values
-        :return population: List of list with the genotypes
+        :param geno_size: Genotype size
+        :return genotype: List of list with the genotypes
     """
 
-    genotype = [0] * 10
+    genotype = [0] * geno_size
     for ind in range(len(genotype)):
         genotype[ind] = random.choice(weights_bias_range)
 
@@ -149,10 +152,10 @@ def population_reproduce_novelty(novelty_archive, p, pop_size, n_genes):
 
     new_p = []
 
-    # Sort the list by 'novelty' key in descending order
+    ## Sort the list by 'novelty' key in descending order
     sorted_genomes = sorted(novelty_archive, key=lambda x: x['novelty'], reverse=True)
 
-    # Extract just the genome identifiers in sorted order
+    ## Extract just the genome identifiers in sorted order
     sorted_parameters = [genome['genome'] for genome in sorted_genomes]
 
     # print(f"Sorted parameters: {sorted_parameters}")
@@ -205,8 +208,8 @@ def crossover(p1,p2):
             crossover.append(p1[i])
 
     if FIXED_BIAS:
-        crossover[4] = 2
-        crossover[9] = 2
+        crossover[120] = 5
+        crossover[121] = 5
 
     return crossover
 
@@ -218,14 +221,14 @@ def mutate(child, n_genes, FIXED_BIAS):
     if FIXED_BIAS:
 
         ## Set bias values to 2
-        child[4] = 2
-        child[9] = 2
+        child[120] = 5
+        child[121] = 5
 
         for gene_no in range(n_genes):
             if np.random.rand() < MUTATION_PROBABILITY:
-                ## Gene 4 is bias for left motor
-                ## Gene 9 is bias for right motor
-                if gene_no == 4 or gene_no == 9:
+                ## Gene 120 is bias for left motor
+                ## Gene 121 is bias for right motor
+                if gene_no == 120 or gene_no == 121:
                     child[gene_no] = child[gene_no]
                 else:
                     child[gene_no] = random_number_close_range(child[gene_no], 1, BOUNDS)
@@ -235,4 +238,3 @@ def mutate(child, n_genes, FIXED_BIAS):
                 child[gene_no] = random_number_close_range(child[gene_no], 1, BOUNDS)
 
     return child
-
