@@ -1,6 +1,8 @@
 import pyenki
 import random
 import time
+import os
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 import plotille
@@ -189,6 +191,9 @@ GENOTYPE_SIZE = 122
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
 
+## Path to save robot behaviour
+folder_path = './robot_behaviour'
+
 def run_optimization(population):
 	
 	print("---\n")
@@ -205,7 +210,7 @@ def run_optimization(population):
 	genotype_id = 0
 	
 	## Create novelty search archive instance
-	archive = NoveltySearchArchive(4, leven_distance)
+	archive = NoveltySearchArchive(10, leven_distance)
 	
 	## Run GA for a fixed number of generations
 	for gen in range(num_gens):
@@ -231,12 +236,13 @@ def run_optimization(population):
 			##Evaluate fitness
 			#~ fitness = fitness_calculate_distance(initial_cylinder_pos[0], initial_cylinder_pos[1], cylinder_final_pos[0], 
 													#~ cylinder_final_pos[1])
-						
+
 			## Add fitness to population fitness
 			#~ population_fitness.append(fitness)				
 			
 			## Get robot behaviour
 			robot_bd = grid.set_of_visited_rects(e.xs, e.ys)
+			#~ print(f"Robot behaviour description: {robot_bd}")
 			
 			## Here add the behaviour to the archive or not.
 			## Add the first behaviour to the archive
@@ -260,34 +266,12 @@ def run_optimization(population):
 				archive.add_novelty_to_behaviour(novelty, genotype_id)
 				#~ print("---------------------------------------------")
 				#~ print(f"Novelty archive: {archive.archive}")
-				
+
 				## Add novelty to population novelty
 				population_novelty.append(novelty)
 				
 				## Update genotype ID
 				genotype_id += 1
-			
-			#~ print(f"Population fitness: {population_fitness}")
-			
-			#~ print(f"c_xs: {c_xs}")
-			#~ print(f"c_ys: {c_ys}")
-
-			#~ ## Plot robot trajectory
-			#~ plt.figure()
-			#~ plt.plot(e.xs, e.ys)
-			#~ grid.plot_grid()
-			#~ plt.title("Robot trajectory")
-			#~ plt.show()
-
-			#~ ## Plot cylinder trajectory
-			#~ ## Calculate the Eucliden distance between initial and final position
-			#~ final_distance = fitness_calculate_distance(50, 60, cylinder_final_pos[0], cylinder_final_pos[1])
-			#~ print(f"Final distance: {final_distance}")
-			#~ plt.figure()
-			#~ plt.plot(c_xs, c_ys)
-			#~ grid.plot_grid()
-			#~ plt.title("Cylinder trajectory")
-			#~ plt.show()
 			
 		## Get the most novel and least novel behaviour
 		most_novel_genome = archive.get_most_novel()
@@ -324,6 +308,55 @@ def run_optimization(population):
 	#~ return best_fitness, best_fitness_val, average_fitness_over_time	
 	return most_novel_genome, least_novel_genome, average_novelty_over_time, archive
 
+def plot_behaviours(archive):
+	"""
+		Plot archive behaviours and save them.
+		:param archive: Final archive list of dictionaries.
+	"""
+	
+	for candidate in archive:
+
+		## Run the most novel candidate to plot robot and cylinder trajectory
+		e, grid, c_xs, c_ys = run_once(candidate['genome'], print_stuff=True, view=False)
+		
+		## Plot robot behaviour
+		plt.figure()
+		## Plot robot trajectory
+		plt.plot(e.xs, e.ys, color='blue', linewidth=0.5, label='Robot trajectory')
+		## Add a square at the start of the trajectory
+		plt.plot(e.xs[0], e.ys[0], marker='s', markersize=5, color='blue', label='Start')
+		## Add a circle marker at the end of the line
+		plt.plot(e.xs[-1], e.ys[-1], marker='o', markersize=5, color='blue', label='End')
+		## Cylinder trajectory
+		plt.plot(c_xs, c_ys, color='red', linewidth=0.5, label='Cylinder trajectory')
+		## Add a square at the start of the trajectory
+		plt.plot(c_xs[0], c_ys[0], marker='s', markersize=5, color='red', label='Start')
+		## Add a circle marker at the end of the line
+		plt.plot(c_xs[-1], c_ys[-1], marker='o', markersize=5, color='red', label='End')
+		## Plot grid
+		grid.plot_grid()
+		plt.title(f"Candidate behaviour ID {candidate['genome_id']}")
+		plt.legend(loc='upper right', fontsize='small')
+		file_name = f"candidate_behaviour_id_{candidate['genome_id']}"
+		plt.savefig(f"{folder_path}/{file_name}")
+		#~ plt.show()
+		
+def save_novelty_archive(archive):
+	"""
+		Save novelty archive as text file.
+		:param archive: Final archive list of dictionaries.
+	"""
+	
+	## Convert sets to list for json serialization
+	for item in archive:
+		item['data'] = list(item['data'])
+	
+	filepath = folder_path + "/final_novelty_archive.json"
+	with open(filepath, 'w') as novelty_file:
+		json.dump(archive, novelty_file, indent=4)
+		#~ for item in archive:
+			#~ novelty_archive_file.write(f"Genome ID: {str(item['genome_id'])}, Genome: {', '.join(item['genome'])}, Data: {', '.join(item['data'])}, Novelty: {item['novelty']}\n")
+
 def main():
 	
 	## Create initial population
@@ -357,68 +390,62 @@ def main():
 	#~ print(f"Average Fitness Per generation All Time: {average_fitness_over_time}")
 	#~ print("Average Fitness All Time: ", sum(average_fitness_over_time)/len(average_fitness_over_time))
 	
-	e, grid, c_xs, c_ys = run_once(most_novel_genome['genome'], print_stuff=True, view=True)
+	
+	## Save the plot for the behaviours in the archive
+	plot_behaviours(novelty_archive.archive)
+	
+	## Save the final archive in .txt file
+	save_novelty_archive(novelty_archive.archive)
+	
+	#~ ## Run the most novel candidate to plot robot and cylinder trajectory
+	#~ e, grid, c_xs, c_ys = run_once(most_novel_genome['genome'], print_stuff=True, view=False)
+
+	#~ ## Plot robot behaviour
+	#~ plt.figure()
+	#~ ## Plot robot trajectory
+	#~ plt.plot(e.xs, e.ys, color='blue', linewidth=0.5, label='Robot trajectory')
+	#~ ## Add a square at the start of the trajectory
+	#~ plt.plot(e.xs[0], e.ys[0], marker='s', markersize=5, color='blue', label='Start')
+	#~ ## Add a circle marker at the end of the line
+	#~ plt.plot(e.xs[-1], e.ys[-1], marker='o', markersize=5, color='blue', label='End')
+	#~ ## Cylinder trajectory
+	#~ plt.plot(c_xs, c_ys, color='red', linewidth=0.5, label='Cylinder trajectory')
+	#~ ## Add a square at the start of the trajectory
+	#~ plt.plot(c_xs[0], c_ys[0], marker='s', markersize=5, color='red', label='Start')
+	#~ ## Add a circle marker at the end of the line
+	#~ plt.plot(c_xs[-1], c_ys[-1], marker='o', markersize=5, color='red', label='End')
+	#~ ## Plot grid
+	#~ grid.plot_grid()
+	#~ plt.title(f"Most novel candidate behaviour - ID {most_novel_genome['genome_id']}")
+	#~ plt.legend(loc='upper right', fontsize='small')
+	#~ file_name = f"Most_Novel_candidate_behaviour_id_{most_novel_genome['genome_id']}"
+	#~ plt.savefig(f"{folder_path}/{file_name}")
+	#~ plt.show()
 
 main()
 
-## Test Camera information ##
+#### Test Candidate ####
+#~ candidate = {'genome_id': 6, 'genome': [4.0, 3.5, 3.5, -1.5, -4.5, 1.5, -4.0, -3.0, 3.5, -4.0, 4.5, 3.5, 3.0, -1.5, 4.5, -2.5, -4.0, 3.0, -0.5, 2.0, -0.5, 1.5, -2.5, -4.5, 1.0, -2.5, 3.0, -4.0, -2.5, -3.5, -4.5, 0.0, -3.0, 0.5, 1.5, -3.0, -3.5, 4.5, 0.0, -4.0, -4.5, 1.5, 1.5, -2.5, 4.0, 0.5, 4.0, -3.0, -3.0, 3.5, -0.5, 2.5, -0.5, -3.0, -4.5, -2.5, -1.5, -3.0, 1.0, 4.0, -1.0, -4.0, 0.5, -3.5, 4.5, -3.0, -1.0, -0.5, -2.5, -4.0, 4.0, -1.5, 4.5, -1.5, -2.5, 3.5, -2.0, 1.5, -1.5, -0.5, -3.5, -2.0, -3.0, 3.0, -1.5, 3.5, 2.0, 0.0, -1.0, 0.0, 2.0, 2.0, 4.0, 4.5, 4.0, -3.0, 0.0, -3.0, -4.5, -0.5, 3.0, 2.0, 2.5, -5.0, 4.5, -1.0, -3.0, 4.0, -2.0, -0.5, 0.0, -4.5, -0.5, 0.5, 2.5, -2.5, -1.5, 0.0, 3.0, 1.5, -3.5, 3.5], 'data': {0, 10, 20, 21, 22, 23}, 'novelty': 51}
+#~ e, grid, c_xs, c_ys = run_once(candidate['genome'], print_stuff=True, view=True)
 
-## This are fixed params to test
-#~ e, grid, c_xs, c_ys = run_once(params, print_stuff=True, view=False)
-
-# create rectangular world - note that coordinate origin is corner of arena
-#~ w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
-
-# create circular world - note that coordinate origin is at centre of arena
-# w = pyenki.WorldWithTexturedGround(400, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # circular arena: radius, (texture file name?), walls colour
-	
-## ir_values_list -> e-puck infrared sensor values
-## For e-puck in position [0]
-#~ print(pucks[0])
-#~ first_puck = pucks[0]
-#~ ir_values_list = first_puck.proximitySensorValues
-#~ left_speed, right_speed = nn_controller(ir_values_list, params)
-
-## For e-puck in position [1]
-#~ ir_values_list = pucks[1].proximitySensorValues()
-#~ left_speed, right_speed = nn_controller(ir_values_list, params)
-
-# create a cylindrical object and add to world
-#~ c = pyenki.CircularObject(20, 30, 100, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
-#~ c.pos = (100, 100) # set cylinder's position: x, y
-#~ c.pos = (100, 100) # set cylinder's position: x, y
-#~ c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
-#~ w.addObject(c) # add cylinder to the world
-
-# create a rectangular object and add to world
-#~ r = pyenki.RectangularObject(40, 20, 5, 10, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
-#~ r.pos = (100, 20)
-#~ r.angle = 0.785
-#~ r.collisionElasticity = 0
-#~ w.addObject(r)
-
-#### there are 3 ways to run the simulation:
-## Method 1: Run simulation with viewer. Simulation runs until viewer window is closed
-#~ w.runInViewer((100, -60), 100, 0, -0.7, 3)
-
-## Method 2a: Run simulation for a period of time
-# w.run(20)
-
-## Method 2b: Run simulation for consecutive periods of time in loop - NOT FULLY TESTED - I USE METHOD 3
-
-#~ for i in range(100):
-	#~ w.run(1)
-	#~ print("Cylinder:", c.pos)
-	#~ print("A robot:", pucks[0].pos)
-	#~ print("Sensors:", pucks[0].proximitySensorValues)
-	#~ print()
-
-
-## Method 3: Run simulation using world step method in a loop
-
-#~ for i in range(10):
-	#~ w.step(0.1, 3) # interval step (dt), physics oversampling
-	#~ print("Cylinder:", c.pos)
-	#~ print("A robot:", pucks[0].pos)
-	#~ print("Sensors:", pucks[0].proximitySensorValues)
-	#~ print()
+#~ ## Plot robot behaviour
+#~ plt.figure()
+#~ ## Plot robot trajectory
+#~ plt.plot(e.xs, e.ys, color='blue', label='Robot trajectory')
+#~ ## Add a square at the start of the trajectory
+#~ plt.plot(e.xs[0], e.ys[0], marker='s', markersize=5, color='blue', label='Start')
+#~ ## Add a circle marker at the end of the line
+#~ plt.plot(e.xs[-1], e.ys[-1], marker='o', markersize=5, color='blue', label='End')
+#~ ## Cylinder trajectory
+#~ plt.plot(c_xs, c_ys, color='red', label='Cylinder trajectory')
+#~ ## Add a square at the start of the trajectory
+#~ plt.plot(c_xs[0], c_ys[0], marker='s', markersize=5, color='red', label='Start')
+#~ ## Add a circle marker at the end of the line
+#~ plt.plot(c_xs[-1], c_ys[-1], marker='o', markersize=5, color='red', label='End')
+#~ ## Plot grid
+#~ grid.plot_grid()
+#~ plt.title(f"Most novel candidate behaviour")
+#~ plt.legend(loc='upper right', fontsize='small')
+#~ file_name = 'Most_Novel_candidate_behaviour'
+#~ plt.savefig(f"{folder_path}/{file_name}")
+#~ plt.show()
