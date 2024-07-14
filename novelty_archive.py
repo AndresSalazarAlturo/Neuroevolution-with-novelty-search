@@ -51,6 +51,7 @@ class NoveltySearchArchive:
     def compute_novelty(self, data):
         """
             Data is the new behaviour not the genome. Is just a list.
+            :param data: Novelty archive list
         """
         diffs = []
         novelty = 0
