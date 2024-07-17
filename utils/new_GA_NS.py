@@ -21,8 +21,8 @@ def create_random_parameters_set(pop_size, geno_size, weights_bias_range):
         for ind in range(len(genotype)):
             if FIXED_BIAS:
                 genotype[ind] = random.choice(weights_bias_range)
-                genotype[120] = 5
-                genotype[121] = 5
+                genotype[136] = 5
+                genotype[137] = 5
             else:
                 genotype[ind] = random.choice(weights_bias_range)
         population[pop_ind] = genotype
@@ -208,8 +208,8 @@ def crossover(p1,p2):
             crossover.append(p1[i])
 
     if FIXED_BIAS:
-        crossover[120] = 5
-        crossover[121] = 5
+        crossover[136] = 5
+        crossover[137] = 5
 
     return crossover
 
@@ -221,14 +221,14 @@ def mutate(child, n_genes, FIXED_BIAS):
     if FIXED_BIAS:
 
         ## Set bias values to 2
-        child[120] = 5
-        child[121] = 5
+        child[136] = 5
+        child[137] = 5
 
         for gene_no in range(n_genes):
             if np.random.rand() < MUTATION_PROBABILITY:
-                ## Gene 120 is bias for left motor
-                ## Gene 121 is bias for right motor
-                if gene_no == 120 or gene_no == 121:
+                ## Gene 136 is bias for left motor
+                ## Gene 137 is bias for right motor
+                if gene_no == 136 or gene_no == 137:
                     child[gene_no] = child[gene_no]
                 else:
                     child[gene_no] = random_number_close_range(child[gene_no], 1, BOUNDS)
