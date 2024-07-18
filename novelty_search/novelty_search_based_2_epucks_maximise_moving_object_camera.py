@@ -112,16 +112,16 @@ class MyEPuck(pyenki.EPuck):
 		# return motor speed commands to robot's controller
 		return [left_speed_command, right_speed_command]
 
-#~ def fitness_calculate_distance(x1, y1, x2, y2):
-	#~ """
-		#~ Euclidean distance between two points.
-		#~ :param x1: Initial position in x.
-		#~ :param y1: Initial position in y.
-		#~ :param x2: Final position in x.
-		#~ :param y2: Final position in y.
-		#~ :return: Euclidean distance between two points.
-	#~ """
-	#~ return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+def euclidean_distance(x1, y1, x2, y2):
+	"""
+		Euclidean distance between two points.
+		:param x1: Initial position in x.
+		:param y1: Initial position in y.
+		:param x2: Final position in x.
+		:param y2: Final position in y.
+		:return: Euclidean distance between two points.
+	"""
+	return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
 def run_once(genome, print_stuff=False, view=False):
 	
@@ -174,6 +174,10 @@ def run_once(genome, print_stuff=False, view=False):
 	#~ e.collisionElasticity = 0
 	#~ w.addObject(e)
 
+
+	## Average distance between the robots
+	total_dis_between_robots = []
+	
 	# simulate
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
@@ -191,6 +195,13 @@ def run_once(genome, print_stuff=False, view=False):
 				c_ys.append(c.pos[1])
 				#~ print(f"C_xs: {c_xs}")
 				#~ print(f"C_ys: {c_ys}")
+				
+				## Calculate the average distance between the bots during the simulation
+				## Calculate the distance every 200 cycles
+				if i % 200 == 0:
+					dis_between_robots = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
+					## List with the distances between the robots during the simulation
+					total_dis_between_robots.append(dis_between_robots)
 
 		#~ if plots:
 		## Plot the trajectory in the terminal
@@ -207,7 +218,7 @@ def run_once(genome, print_stuff=False, view=False):
 		#~ print(f"Robot position: {e.pos}")
 
 		# return robot and grid
-		return pucks, grid, c_xs, c_ys
+		return pucks, grid, c_xs, c_ys, total_dis_between_robots
 
 ## 80, 50
 ## 100, 140
@@ -225,7 +236,7 @@ GENOTYPE_SIZE = 138
 weights_bias_range = np.arange(-5, 5, 0.5)
 
 ## Path to save robot behaviour
-folder_path = './2_epuck_robots_behaviour_1'
+folder_path = './2_epuck_robots_behaviour_5'
 
 def run_optimization(population):
 	
@@ -243,7 +254,7 @@ def run_optimization(population):
 	genotype_id = 0
 	
 	## Create novelty search archive instance
-	archive = NoveltySearchArchive(10, leven_distance)
+	archive = NoveltySearchArchive(20, leven_distance)
 	
 	## Run GA for a fixed number of generations
 	for gen in range(num_gens):
@@ -260,7 +271,7 @@ def run_optimization(population):
 			print(f"Run optimization, genotype sent: {genotype}")
 			
 			##Evaluate genotype
-			pucks, grid, c_xs, c_ys = run_once(genotype, print_stuff=True, view=False)
+			pucks, grid, c_xs, c_ys, total_dis_between_robots = run_once(genotype, print_stuff=True, view=False)
 			
 			## Final cylinder position
 			#~ cylinder_final_pos = (c_xs[-1], c_ys[-1])
@@ -279,16 +290,46 @@ def run_optimization(population):
 			
 			#~ print(f"Epuck 1: {pucks}")
 			
-			robot_1_bd = grid.set_of_visited_rects(pucks[0].xs, pucks[0].ys)
-			robot_2_bd = grid.set_of_visited_rects(pucks[1].xs, pucks[1].ys)
-			## Here just make the union of both trajectories
-			#~ final_bd = robot_1_bd | robot_2_bd
+			## Get robots behaviour	
+			#~ robot_1_bd = grid.set_of_visited_rects(pucks[0].xs, pucks[0].ys)
+			#~ robot_2_bd = grid.set_of_visited_rects(pucks[1].xs, pucks[1].ys)
+
 			## Here just create a third set with the two different behaviours
-			str_robot_1_bd = str(robot_1_bd)
-			str_robot_2_db = str(robot_2_bd)
+			#~ str_robot_1_bd = str(robot_1_bd)
+			#~ str_robot_2_db = str(robot_2_bd)
 			
-			final_bd = {str_robot_1_bd, str_robot_2_db}
+			#~ final_bd = {str_robot_1_bd, str_robot_2_db}
 			
+			## Get cylinder behaviour
+			cylinder_bd = grid.set_of_visited_rects(c_xs, c_ys)
+			str_cylinder_bd = str(cylinder_bd)
+			#~ final_bd = {str_robot_1_bd, str_robot_2_db, str_cylinder_bd}
+			#~ final_bd = cylinder_bd
+
+			## Normalize the distance between robots before calculating the average value
+			min_value = min(total_dis_between_robots)
+			max_value = max(total_dis_between_robots)
+			
+			## Handle ZeroDivisionError when min and max values could be the same value
+			if max_value > min_value:
+			
+				normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
+			
+			else:
+				
+				normalized_dist_between_robots = [0.0] * len(total_dis_between_robots)
+				
+			## Calculate the average value
+			#~ print(f"Original distance between robots: {total_dis_between_robots}")
+			if normalized_dist_between_robots != 0:
+				avg_normalized_dist_between_robots = sum(normalized_dist_between_robots) / len(normalized_dist_between_robots)
+			else:
+				normalized_dist_between_robots = 0
+
+			str_avg_normalized_dist_between_robots = str(avg_normalized_dist_between_robots)
+			
+			final_bd = {str_avg_normalized_dist_between_robots, str_cylinder_bd}
+
 			## Here add the behaviour to the archive or not.
 			## Add the first behaviour to the archive
 			if len(archive.archive) == 0:
@@ -317,7 +358,7 @@ def run_optimization(population):
 				
 				## Update genotype ID
 				genotype_id += 1
-			
+		
 		## Get the most novel and least novel behaviour
 		most_novel_genome = archive.get_most_novel()
 		least_novel_genome = archive.get_least_novel()
@@ -362,7 +403,7 @@ def plot_behaviours(archive):
 	for candidate in archive:
 		
 		## Run the most novel candidate to plot robot and cylinder trajectory
-		pucks, grid, c_xs, c_ys = run_once(candidate['genome'], print_stuff=True, view=False)
+		pucks, grid, c_xs, c_ys, total_dis_between_robots = run_once(candidate['genome'], print_stuff=True, view=False)
 		
 		## Plot robot behaviour
 		plt.figure()
@@ -375,11 +416,11 @@ def plot_behaviours(archive):
 				robot_trajectory_number = f"Robot {robot_number}"
 
 			## Plot robot trajectory
-			plt.plot(pucks[0].xs, pucks[0].ys, color=trajectory_color, linewidth=0.5, label=robot_trajectory_number)
+			plt.plot(pucks[robot_number].xs, pucks[robot_number].ys, color=trajectory_color, linewidth=0.5, label=robot_trajectory_number)
 			## Add a square at the start of the trajectory
-			plt.plot(pucks[0].xs[0], pucks[0].ys[0], marker='s', markersize=5, color=trajectory_color, label='Start')
+			plt.plot(pucks[robot_number].xs[0], pucks[robot_number].ys[0], marker='s', markersize=5, color=trajectory_color, label='Start')
 			## Add a circle marker at the end of the line
-			plt.plot(pucks[0].xs[-1], pucks[0].ys[-1], marker='o', markersize=5, color=trajectory_color, label='End')
+			plt.plot(pucks[robot_number].xs[-1], pucks[robot_number].ys[-1], marker='o', markersize=5, color=trajectory_color, label='End')
 			
 		## Cylinder trajectory
 		plt.plot(c_xs, c_ys, color='red', linewidth=0.5, label='Cylinder trajectory')
@@ -456,26 +497,5 @@ main()
 #### Test Candidate ####
 #~ params_test = [1] * 138
 #~ candidate = {'genome_id': 6, 'genome': [4.0, 3.5, 3.5, -1.5, -4.5, 1.5, -4.0, -3.0, 3.5, -4.0, 4.5, 3.5, 3.0, -1.5, 4.5, -2.5, -4.0, 3.0, -0.5, 2.0, -0.5, 1.5, -2.5, -4.5, 1.0, -2.5, 3.0, -4.0, -2.5, -3.5, -4.5, 0.0, -3.0, 0.5, 1.5, -3.0, -3.5, 4.5, 0.0, -4.0, -4.5, 1.5, 1.5, -2.5, 4.0, 0.5, 4.0, -3.0, -3.0, 3.5, -0.5, 2.5, -0.5, -3.0, -4.5, -2.5, -1.5, -3.0, 1.0, 4.0, -1.0, -4.0, 0.5, -3.5, 4.5, -3.0, -1.0, -0.5, -2.5, -4.0, 4.0, -1.5, 4.5, -1.5, -2.5, 3.5, -2.0, 1.5, -1.5, -0.5, -3.5, -2.0, -3.0, 3.0, -1.5, 3.5, 2.0, 0.0, -1.0, 0.0, 2.0, 2.0, 4.0, 4.5, 4.0, -3.0, 0.0, -3.0, -4.5, -0.5, 3.0, 2.0, 2.5, -5.0, 4.5, -1.0, -3.0, 4.0, -2.0, -0.5, 0.0, -4.5, -0.5, 0.5, 2.5, -2.5, -1.5, 0.0, 3.0, 1.5, -3.5, 3.5], 'data': {0, 10, 20, 21, 22, 23}, 'novelty': 51}
-#~ e, grid, c_xs, c_ys = run_once(params_test, print_stuff=True, view=True)
+#~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
 
-#~ ## Plot robot behaviour
-#~ plt.figure()
-#~ ## Plot robot trajectory
-#~ plt.plot(e.xs, e.ys, color='blue', label='Robot trajectory')
-#~ ## Add a square at the start of the trajectory
-#~ plt.plot(e.xs[0], e.ys[0], marker='s', markersize=5, color='blue', label='Start')
-#~ ## Add a circle marker at the end of the line
-#~ plt.plot(e.xs[-1], e.ys[-1], marker='o', markersize=5, color='blue', label='End')
-#~ ## Cylinder trajectory
-#~ plt.plot(c_xs, c_ys, color='red', label='Cylinder trajectory')
-#~ ## Add a square at the start of the trajectory
-#~ plt.plot(c_xs[0], c_ys[0], marker='s', markersize=5, color='red', label='Start')
-#~ ## Add a circle marker at the end of the line
-#~ plt.plot(c_xs[-1], c_ys[-1], marker='o', markersize=5, color='red', label='End')
-#~ ## Plot grid
-#~ grid.plot_grid()
-#~ plt.title(f"Most novel candidate behaviour")
-#~ plt.legend(loc='upper right', fontsize='small')
-#~ file_name = 'Most_Novel_candidate_behaviour'
-#~ plt.savefig(f"{folder_path}/{file_name}")
-#~ plt.show()
