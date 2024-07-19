@@ -135,16 +135,32 @@ def run_once(genome, print_stuff=False, view=False):
 	# create rectangular world - note that coordinate origin is corner of arena
 	w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
 
-	# create a rectangular object and add to world
-	r = pyenki.RectangularObject(130, 20, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
-	r.pos = (rectangle_pos[0], rectangle_pos[1])
+	# create a rectangular object and add to world - Big horizontal one
+	r_1 = pyenki.RectangularObject(130, 10, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	r_1.pos = (rectangle_big_horizontal_pos[0], rectangle_big_horizontal_pos[1])
 	## 0.785
-	r.angle = 0
-	r.collisionElasticity = 0
-	w.addObject(r)
+	r_1.angle = 0
+	r_1.collisionElasticity = 0
+	w.addObject(r_1)
+	
+	# create a rectangular object and add to world - Vertical one
+	r_2 = pyenki.RectangularObject(10, 80, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	r_2.pos = (rectangle_vertical_pos[0], rectangle_vertical_pos[1])
+	## 0.785
+	r_2.angle = 0
+	r_2.collisionElasticity = 0
+	w.addObject(r_2)
+	
+	# create a rectangular object and add to world - Small horizontal one
+	r_3 = pyenki.RectangularObject(10, 50, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	r_3.pos = (rectangle_small_horizontal_pos[0], rectangle_small_horizontal_pos[1])
+	## 0.785
+	r_3.angle = 1.6
+	r_3.collisionElasticity = 0
+	w.addObject(r_3)
 
 	# create a cylindrical object and add to world
-	c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
+	c = pyenki.CircularObject(15, 15, 1000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
 	#~ c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(0, 0, 0, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
 	c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
@@ -162,8 +178,9 @@ def run_once(genome, print_stuff=False, view=False):
 		## Create an instance of e-puck class
 		e = MyEPuck(genome)
 		pucks[n] = e
-		#~ pucks.append(e)
-		e.pos = (n * 50, n * 60)
+		#~ e.pos = (n * 50, n * 60)
+		#~ e.pos = (n * 0, n * 1)
+		e.pos = (n * 130, n * 90)
 		e.collisionElasticity = 0
 		w.addObject(e)
 
@@ -182,7 +199,7 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(2000): ##1000
+		for i in range(1000): ##1000
 			w.step(0.1, 3)
 			#~ c_xs.append(c.pos[0])
 			#~ c_ys.append(c.pos[1])
@@ -198,11 +215,14 @@ def run_once(genome, print_stuff=False, view=False):
 				
 				## Calculate the average distance between the bots during the simulation
 				## Calculate the distance every 200 cycles
-				if i % 200 == 0:
+				if i % 100 == 0:
 					dis_between_robots = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
 					## List with the distances between the robots during the simulation
 					total_dis_between_robots.append(dis_between_robots)
-
+					
+				#~ dis_between_robots = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
+				#~ total_dis_between_robots.append(dis_between_robots)
+				
 		#~ if plots:
 		## Plot the trajectory in the terminal
 		#~ fig = plotille.Figure()
@@ -224,7 +244,9 @@ def run_once(genome, print_stuff=False, view=False):
 ## 100, 140
 ## Desire final position for cylinder = 170, 175; 180, 180
 initial_cylinder_pos = [140, 40]
-rectangle_pos = [130, 135]
+rectangle_big_horizontal_pos = [130, 135]
+rectangle_vertical_pos = [70, 90]
+rectangle_small_horizontal_pos = [100, 55]
 
 num_robots = 2
 
@@ -236,7 +258,7 @@ GENOTYPE_SIZE = 138
 weights_bias_range = np.arange(-5, 5, 0.5)
 
 ## Path to save robot behaviour
-folder_path = './2_epuck_robots_behaviour_5'
+folder_path = './2_epuck_robots_behaviour_6'
 
 def run_optimization(population):
 	
@@ -307,18 +329,21 @@ def run_optimization(population):
 			#~ final_bd = cylinder_bd
 
 			## Normalize the distance between robots before calculating the average value
-			min_value = min(total_dis_between_robots)
-			max_value = max(total_dis_between_robots)
+			## Values calculated in the simulation
+			min_value = 5.67
+			max_value = 271.37
 			
 			## Handle ZeroDivisionError when min and max values could be the same value
-			if max_value > min_value:
+			#~ if max_value > min_value:
 			
-				normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
+				#~ normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
 			
-			else:
+			#~ else:
 				
-				normalized_dist_between_robots = [0.0] * len(total_dis_between_robots)
+				#~ normalized_dist_between_robots = [0.0] * len(total_dis_between_robots)
 				
+			normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
+
 			## Calculate the average value
 			#~ print(f"Original distance between robots: {total_dis_between_robots}")
 			if normalized_dist_between_robots != 0:
@@ -435,7 +460,7 @@ def plot_behaviours(archive):
 		file_name = f"candidate_behaviour_id_{candidate['genome_id']}"
 		plt.savefig(f"{folder_path}/{file_name}")
 		#~ plt.show()
-		
+
 def save_novelty_archive(archive):
 	"""
 		Save novelty archive as text file.
@@ -495,7 +520,7 @@ def main():
 main()
 
 #### Test Candidate ####
-#~ params_test = [1] * 138
+#~ params_test = [0] * 138
 #~ candidate = {'genome_id': 6, 'genome': [4.0, 3.5, 3.5, -1.5, -4.5, 1.5, -4.0, -3.0, 3.5, -4.0, 4.5, 3.5, 3.0, -1.5, 4.5, -2.5, -4.0, 3.0, -0.5, 2.0, -0.5, 1.5, -2.5, -4.5, 1.0, -2.5, 3.0, -4.0, -2.5, -3.5, -4.5, 0.0, -3.0, 0.5, 1.5, -3.0, -3.5, 4.5, 0.0, -4.0, -4.5, 1.5, 1.5, -2.5, 4.0, 0.5, 4.0, -3.0, -3.0, 3.5, -0.5, 2.5, -0.5, -3.0, -4.5, -2.5, -1.5, -3.0, 1.0, 4.0, -1.0, -4.0, 0.5, -3.5, 4.5, -3.0, -1.0, -0.5, -2.5, -4.0, 4.0, -1.5, 4.5, -1.5, -2.5, 3.5, -2.0, 1.5, -1.5, -0.5, -3.5, -2.0, -3.0, 3.0, -1.5, 3.5, 2.0, 0.0, -1.0, 0.0, 2.0, 2.0, 4.0, 4.5, 4.0, -3.0, 0.0, -3.0, -4.5, -0.5, 3.0, 2.0, 2.5, -5.0, 4.5, -1.0, -3.0, 4.0, -2.0, -0.5, 0.0, -4.5, -0.5, 0.5, 2.5, -2.5, -1.5, 0.0, 3.0, 1.5, -3.5, 3.5], 'data': {0, 10, 20, 21, 22, 23}, 'novelty': 51}
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
-
+#~ print(f"Max distance between robots: {total_dis_between_robots}")
