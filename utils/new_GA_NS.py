@@ -161,7 +161,8 @@ def population_reproduce_novelty(novelty_archive, p, pop_size, n_genes):
     # print(f"Sorted parameters: {sorted_parameters}")
 
     ## Selection
-    elite_part = len(novelty_archive)
+    #~ elite_part = len(novelty_archive)
+    elite_part = round(len(novelty_archive) * ELITE_PART)
     new_p = new_p + sorted_parameters
 
     for i in range(pop_size-elite_part):
