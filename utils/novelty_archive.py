@@ -1,5 +1,6 @@
 import numpy as np
 from Levenshtein import distance as leven_distance
+from difflib import SequenceMatcher 
 
 class NoveltySearchArchive:
     def __init__(self, archive_size, diff_function):
@@ -47,6 +48,17 @@ class NoveltySearchArchive:
             Get the average novelty in the archive.
         """
         return sum(self.novelties)/len(self.novelties)
+        
+    def sequence_matcher_distance(self, str1, str2):
+
+		#~ str1 = str(s1)
+		#~ str2 = str(s2)
+		#~ print(f"str1: {str1}")
+		#~ print(f"str2: {str2}")
+
+        matcher = SequenceMatcher(None, str1, str2)
+
+        return 1 - matcher.ratio()
 
     def compute_novelty(self, data):
         """
@@ -57,15 +69,25 @@ class NoveltySearchArchive:
         novelty = 0
         ## Transform data to list
         #~ data = list(data)
-        data = str(data)
+        ## Sort the data to keep the order
+        data_sorted = sorted(data)
+        data = str(data_sorted)
+
         if len(self.archive) > 0:
             for e in self.archive:
                 ## Transform set to list to use levenshtein distance
-                #~ behavior = list(e['data'])
-                behavior = str(e['data'])
+                ## Sort the behavior to keep the order
+                behavior_sorted = sorted(e['data'])
+                behavior = str(behavior_sorted)
                 #~ print(f"Data: {data}")
                 #~ print(f"Behaviour: {behavior}")
+                
+                ## Using Levenshtein distance
                 diffs.append(leven_distance(data, behavior))
+                
+                ## Using sequence matcher
+                #~ diffs.append(self.sequence_matcher_distance(data, behavior))
+                
             novelty = sum(diffs)
 
         return novelty, diffs
