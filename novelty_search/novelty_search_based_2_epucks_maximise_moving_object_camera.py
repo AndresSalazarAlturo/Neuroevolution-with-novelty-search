@@ -25,8 +25,8 @@ rectangle_small_horizontal_pos = [100, 55]
 num_robots = 2
 
 ## GA parameters
-num_gens = 30
-POPULATION_SIZE = 40
+num_gens = 150
+POPULATION_SIZE = 50
 GENOTYPE_SIZE = 215
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
@@ -36,8 +36,12 @@ num_input_neurons = 3
 output_size = 2
 inputs_size = 68
 
+## Archive size
+archive_size = 40
+
 ## Path to save robot behaviour
-folder_path = './2_epuck_robots_behaviour_6'
+folder_path = './2_epuck_robots_behaviour_13'
+## _150Gens_50PopSize_40Archive_Levenshtein_DistanceBetweenRobots_and_CylinderFinalPos
 
 class MyEPuck(pyenki.EPuck):
 	
@@ -171,9 +175,9 @@ def run_once(genome, print_stuff=False, view=False):
 		## Create an instance of e-puck class
 		e = MyEPuck(genome, num_input_neurons, output_size, inputs_size)
 		pucks[n] = e
-		#~ e.pos = (n * 50, n * 60)
+		e.pos = (n * 50, n * 60)
 		#~ e.pos = (n * 0, n * 1)
-		e.pos = (n * 130, n * 90)
+		#~ e.pos = (n * 130, n * 90)
 		e.collisionElasticity = 0
 		w.addObject(e)
 
@@ -207,7 +211,7 @@ def run_once(genome, print_stuff=False, view=False):
 				
 				## Calculate the average distance between the bots during the simulation
 				## Calculate the distance every 200 cycles
-				if i % 100 == 0:
+				if i % 50 == 0:
 					dis_between_robots = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
 					## List with the distances between the robots during the simulation
 					total_dis_between_robots.append(dis_between_robots)
@@ -248,7 +252,7 @@ def run_optimization(population):
 	genotype_id = 0
 	
 	## Create novelty search archive instance
-	archive = NoveltySearchArchive(20, leven_distance)
+	archive = NoveltySearchArchive(archive_size, leven_distance)
 	
 	## Run GA for a fixed number of generations
 	for gen in range(num_gens):
@@ -295,25 +299,24 @@ def run_optimization(population):
 			#~ final_bd = {str_robot_1_bd, str_robot_2_db}
 			
 			## Get cylinder behaviour
-			cylinder_bd = grid.set_of_visited_rects(c_xs, c_ys)
-			str_cylinder_bd = str(cylinder_bd)
+			#~ cylinder_bd = grid.set_of_visited_rects(c_xs, c_ys)
+			#~ str_cylinder_bd = str(cylinder_bd)
+			
 			#~ final_bd = {str_robot_1_bd, str_robot_2_db, str_cylinder_bd}
 			#~ final_bd = cylinder_bd
+			## Get cylinder behaviour as final position (x,y)
+			cylinder_final_pos = {c_xs[-1], c_ys[-1]}
+			## Sort the cylinder information to keep the order when transforming
+			## to string
+			#~ print(f"CYlinder final POS: {cylinder_final_pos}")
+			cylinder_final_pos_sorted = sorted(cylinder_final_pos)
+			str_cylinder_final_pos = str(cylinder_final_pos_sorted)
 
 			## Normalize the distance between robots before calculating the average value
 			## Values calculated in the simulation
 			min_value = 5.67
 			max_value = 271.37
-			
-			## Handle ZeroDivisionError when min and max values could be the same value
-			#~ if max_value > min_value:
-			
-				#~ normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
-			
-			#~ else:
-				
-				#~ normalized_dist_between_robots = [0.0] * len(total_dis_between_robots)
-				
+	
 			normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
 
 			## Calculate the average value
@@ -323,9 +326,12 @@ def run_optimization(population):
 			else:
 				normalized_dist_between_robots = 0
 
+			## Sort the normalized robot's distance value to keep the order when
+			## transforming to string
+			#~ avg_normalized_dist_between_robots_sorted = sorted(avg_normalized_dist_between_robots)
 			str_avg_normalized_dist_between_robots = str(avg_normalized_dist_between_robots)
-			
-			final_bd = {str_avg_normalized_dist_between_robots, str_cylinder_bd}
+
+			final_bd = {str_avg_normalized_dist_between_robots, str_cylinder_final_pos}
 
 			## Here add the behaviour to the archive or not.
 			## Add the first behaviour to the archive
@@ -338,7 +344,7 @@ def run_optimization(population):
 				
 				## Update genotype ID
 				genotype_id += 1
-			
+
 			else:
 				## When there is at least one candidate in the archive
 				## This behaviour set is the new behaviour that is going
@@ -431,6 +437,7 @@ def plot_behaviours(archive):
 		plt.legend(loc='upper right', fontsize='small')
 		file_name = f"candidate_behaviour_id_{candidate['genome_id']}"
 		plt.savefig(f"{folder_path}/{file_name}")
+		plt.close()
 		#~ plt.show()
 
 def save_novelty_archive(archive):
@@ -492,6 +499,31 @@ def main():
 main()
 
 #### Test Candidate ####
+## Path to save robot behaviour
+#~ folder_json_path = './2_epuck_robots_behaviour_6'
+## Load Json data from file
+#~ def load_json(folder_name, file_name):
+	#~ path = f"{folder_name}/{file_name}"
+	#~ with open(path, 'r') as file:
+		#~ data = json.load(file)
+	#~ return data
+	
+#~ def access_data(data, key):
+	#~ return data.get(key, "Key not found")
+	
+#~ folder_name = './2_epuck_robots_behaviour_6'
+#~ file_name = 'final_novelty_archive.json'
+
+#~ json_data = load_json(folder_name, file_name)
+#~ desired_behaviour = 348
+#~ for candidate in json_data:
+	#~ print(f"{json_data[candidate]}")
+	#~ if candidate['genome_id'] == desired_behaviour:
+		#~ tested_genome = candidate['genome']
+		#~ break
+#~ print(f"{tested_genome}")
+#~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(tested_genome, print_stuff=True, view=True)
+
 #~ params_test = [0] * 215
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
 #~ print(f"Max distance between robots: {total_dis_between_robots}")
