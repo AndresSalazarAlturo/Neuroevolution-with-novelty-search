@@ -10,14 +10,44 @@ from Grid import Grid
 import math
 from new_GA_NS import *
 from novelty_archive import *
+from multi_layer_nn_controller import *
+
+## World's objects positions
+## 80, 50
+## 100, 140
+## Desire final position for cylinder = 170, 175; 180, 180
+initial_cylinder_pos = [140, 40]
+rectangle_big_horizontal_pos = [130, 135]
+rectangle_vertical_pos = [70, 90]
+rectangle_small_horizontal_pos = [100, 55]
+
+## Number of robots
+num_robots = 2
+
+## GA parameters
+num_gens = 30
+POPULATION_SIZE = 40
+GENOTYPE_SIZE = 215
+## Weights, bias bounds
+weights_bias_range = np.arange(-5, 5, 0.5)
+
+## Controller related
+num_input_neurons = 3
+output_size = 2
+inputs_size = 68
+
+## Path to save robot behaviour
+folder_path = './2_epuck_robots_behaviour_6'
 
 class MyEPuck(pyenki.EPuck):
 	
 	# init EPuck. You can add any args and other code you need
-	def __init__(self, params):
+	def __init__(self, params, num_input_neurons, output_size, inputs_size):
 		super(MyEPuck, self).__init__()
-		self.timeout = 5 # set timer period
 		self.params = params
+		self.num_input_neurons = num_input_neurons
+		self.output_size = output_size
+		self.inputs_size = inputs_size
 
 		## Save robot info
 		self.xs = []
@@ -52,7 +82,7 @@ class MyEPuck(pyenki.EPuck):
 		for pixel in range(len(camera_obj)):
 			#~ print(f"Camera ToGray pixel #{pixel + 1}: {camera_obj[pixel].toGray()}")
 			camera_inputs.append(camera_obj[pixel].toGray())
-		
+
 		## Get robot's raw proximity sensor values
 		ir_sensors = self.proximitySensorValues
 		## Scale sensor values down by factor of 1000
@@ -60,57 +90,20 @@ class MyEPuck(pyenki.EPuck):
 		
 		## Concatenate the camera and IR inputs
 		final_inputs = camera_inputs + ir_sensor_inputs		
-
-		## Motor commands are taken from nn_controller function
-		commands = self.nn_controller(final_inputs, self.params)
-		#~ print(f"Commands: {commands}")
+		#~ print(f"Final inputs size: {len(final_inputs)}") 68!
+		
+		## Calculate the motor speeds with multi_layer feed forward controller
+		controller_obj = ForwardNeuralNetwork(self.params, self.num_input_neurons, self.output_size, self.inputs_size)
+		## Outputs
+		commands = controller_obj.forward(final_inputs)
 		
 		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
-		self.leftSpeed = scale * commands[0]
-		self.rightSpeed = scale * commands[1]
-
-		## Test object
-		#~ self.leftSpeed = 5
-		#~ self.rightSpeed = 5
-		
-		## print pos
-		#~ print(f"Pos x: {self.pos[0]}")
-		#~ print(f"Pos y: {self.pos[1]}")
+		self.leftSpeed = scale * commands[0][0]
+		self.rightSpeed = scale * commands[0][1]
 
 		## Save pos
 		self.xs.append(self.pos[0])
 		self.ys.append(self.pos[1])
-		
-	def nn_controller(self, inputs, params):
-		"""
-			Neural network with forward propagation. No activation function.
-			:param inputs: List with sensor values
-			:param params: List with weights and bias values
-			:return left_speed_command: Left motor speed
-			:return right_speed_command: Right motor speed
-		"""
-
-		#~ print(f"Len inputs: {len(inputs)}")
-		#~ print(f"Params inputs: {len(params)}")
-
-		## Left motor speed
-		left_speed_command = 0
-		for i in range(68):
-			## Each sensor's contribution to left motor
-			left_speed_command += inputs[i] * params[i]
-		## Bias for left motor
-		left_speed_command += params[136]
-
-		## Right motor speed
-		right_speed_command = 0
-		for i in range(68):
-			## Each sensor's contribution to right motor
-			right_speed_command += inputs[i] * params[68 + i]
-		## Bias for right motor
-		right_speed_command += params[137]	
-
-		# return motor speed commands to robot's controller
-		return [left_speed_command, right_speed_command]
 
 def euclidean_distance(x1, y1, x2, y2):
 	"""
@@ -176,7 +169,7 @@ def run_once(genome, print_stuff=False, view=False):
 	
 	for n in range(num_robots):
 		## Create an instance of e-puck class
-		e = MyEPuck(genome)
+		e = MyEPuck(genome, num_input_neurons, output_size, inputs_size)
 		pucks[n] = e
 		#~ e.pos = (n * 50, n * 60)
 		#~ e.pos = (n * 0, n * 1)
@@ -190,7 +183,6 @@ def run_once(genome, print_stuff=False, view=False):
 	#~ e.pos = (50, 60)
 	#~ e.collisionElasticity = 0
 	#~ w.addObject(e)
-
 
 	## Average distance between the robots
 	total_dis_between_robots = []
@@ -239,26 +231,6 @@ def run_once(genome, print_stuff=False, view=False):
 
 		# return robot and grid
 		return pucks, grid, c_xs, c_ys, total_dis_between_robots
-
-## 80, 50
-## 100, 140
-## Desire final position for cylinder = 170, 175; 180, 180
-initial_cylinder_pos = [140, 40]
-rectangle_big_horizontal_pos = [130, 135]
-rectangle_vertical_pos = [70, 90]
-rectangle_small_horizontal_pos = [100, 55]
-
-num_robots = 2
-
-params = [0] * 138
-num_gens = 200
-POPULATION_SIZE = 40
-GENOTYPE_SIZE = 138
-## Weights, bias bounds
-weights_bias_range = np.arange(-5, 5, 0.5)
-
-## Path to save robot behaviour
-folder_path = './2_epuck_robots_behaviour_6'
 
 def run_optimization(population):
 	
@@ -520,7 +492,6 @@ def main():
 main()
 
 #### Test Candidate ####
-#~ params_test = [0] * 138
-#~ candidate = {'genome_id': 6, 'genome': [4.0, 3.5, 3.5, -1.5, -4.5, 1.5, -4.0, -3.0, 3.5, -4.0, 4.5, 3.5, 3.0, -1.5, 4.5, -2.5, -4.0, 3.0, -0.5, 2.0, -0.5, 1.5, -2.5, -4.5, 1.0, -2.5, 3.0, -4.0, -2.5, -3.5, -4.5, 0.0, -3.0, 0.5, 1.5, -3.0, -3.5, 4.5, 0.0, -4.0, -4.5, 1.5, 1.5, -2.5, 4.0, 0.5, 4.0, -3.0, -3.0, 3.5, -0.5, 2.5, -0.5, -3.0, -4.5, -2.5, -1.5, -3.0, 1.0, 4.0, -1.0, -4.0, 0.5, -3.5, 4.5, -3.0, -1.0, -0.5, -2.5, -4.0, 4.0, -1.5, 4.5, -1.5, -2.5, 3.5, -2.0, 1.5, -1.5, -0.5, -3.5, -2.0, -3.0, 3.0, -1.5, 3.5, 2.0, 0.0, -1.0, 0.0, 2.0, 2.0, 4.0, 4.5, 4.0, -3.0, 0.0, -3.0, -4.5, -0.5, 3.0, 2.0, 2.5, -5.0, 4.5, -1.0, -3.0, 4.0, -2.0, -0.5, 0.0, -4.5, -0.5, 0.5, 2.5, -2.5, -1.5, 0.0, 3.0, 1.5, -3.5, 3.5], 'data': {0, 10, 20, 21, 22, 23}, 'novelty': 51}
+#~ params_test = [0] * 215
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
 #~ print(f"Max distance between robots: {total_dis_between_robots}")
