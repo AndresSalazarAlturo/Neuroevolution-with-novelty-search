@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import plotille
 from Grid import Grid
 import math
-from new_GA_NS import *
+from my_GA_cam_based import *
 from novelty_archive import *
 from multi_layer_nn_controller import *
 
@@ -16,6 +16,7 @@ from multi_layer_nn_controller import *
 ## 80, 50
 ## 100, 140
 ## Desire final position for cylinder = 170, 175; 180, 180
+desired_cylinder_pos = [180, 180]
 initial_cylinder_pos = [140, 40]
 rectangle_big_horizontal_pos = [130, 135]
 rectangle_vertical_pos = [70, 90]
@@ -26,7 +27,7 @@ num_robots = 2
 
 ## GA parameters
 num_gens = 100
-POPULATION_SIZE = 50
+POPULATION_SIZE = 20
 GENOTYPE_SIZE = 215
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
@@ -37,10 +38,10 @@ output_size = 2
 inputs_size = 68
 
 ## Archive size
-archive_size = 40
+#~ archive_size = 40
 
 ## Path to save robot behaviour
-folder_path = './2_epuck_robots_behaviour_16'
+folder_path = './2_epuck_robots_behaviour_17'
 ## _100Gens_50PopSize_40Archive_Levenshtein_DistanceBetweenRobots_and_CylinderTrajectory
 
 class MyEPuck(pyenki.EPuck):
@@ -189,7 +190,7 @@ def run_once(genome, print_stuff=False, view=False):
 	#~ w.addObject(e)
 
 	## Average distance between the robots
-	total_dis_between_robots = []
+	#~ total_dis_between_robots = []
 	
 	# simulate
 	if view:
@@ -211,10 +212,10 @@ def run_once(genome, print_stuff=False, view=False):
 				
 				## Calculate the average distance between the bots during the simulation
 				## Calculate the distance every 200 cycles
-				if i % 50 == 0:
-					dis_between_robots = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
+				#~ if i % 50 == 0:
+					#~ dis_between_robots = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
 					## List with the distances between the robots during the simulation
-					total_dis_between_robots.append(dis_between_robots)
+					#~ total_dis_between_robots.append(dis_between_robots)
 					
 				#~ dis_between_robots = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
 				#~ total_dis_between_robots.append(dis_between_robots)
@@ -234,7 +235,7 @@ def run_once(genome, print_stuff=False, view=False):
 		#~ print(f"Robot position: {e.pos}")
 
 		# return robot and grid
-		return pucks, grid, c_xs, c_ys, total_dis_between_robots
+		return pucks, grid, c_xs, c_ys
 
 def run_optimization(population):
 	
@@ -243,21 +244,12 @@ def run_optimization(population):
 	print("Population Size %i, Genome Size %i"%(POPULATION_SIZE, GENOTYPE_SIZE))
 
 	## list to store average fitness
-	#~ average_fitness_over_time = []
-	
-	## List to store average novelty
-	average_novelty_over_time = []
-	
-	## Genotype ID
-	genotype_id = 0
-	
-	## Create novelty search archive instance
-	archive = NoveltySearchArchive(archive_size, leven_distance)
+	average_fitness_over_time = []
 	
 	## Run GA for a fixed number of generations
 	for gen in range(num_gens):
-		#~ population_fitness = []
-		population_novelty = []
+		population_fitness = []
+		#~ population_novelty = []
 
 		for ind in range(POPULATION_SIZE):
 			print("----------------------------------------")
@@ -269,131 +261,33 @@ def run_optimization(population):
 			print(f"Run optimization, genotype sent: {genotype}")
 			
 			##Evaluate genotype
-			pucks, grid, c_xs, c_ys, total_dis_between_robots = run_once(genotype, print_stuff=True, view=False)
+			pucks, grid, c_xs, c_ys = run_once(genotype, print_stuff=True, view=False)
 			
 			## Final cylinder position
-			#~ cylinder_final_pos = (c_xs[-1], c_ys[-1])
+			cylinder_final_pos = (c_xs[-1], c_ys[-1])
 			#~ print(f"Cylinder final pos: X:{cylinder_final_pos[0]}, Y:{cylinder_final_pos[1]}")
 			
 			##Evaluate fitness
-			#~ fitness = fitness_calculate_distance(initial_cylinder_pos[0], initial_cylinder_pos[1], cylinder_final_pos[0], 
-													#~ cylinder_final_pos[1])
+			fitness = euclidean_distance(desired_cylinder_pos[0], desired_cylinder_pos[1], cylinder_final_pos[0], 
+													cylinder_final_pos[1])
 
 			## Add fitness to population fitness
-			#~ population_fitness.append(fitness)				
+			population_fitness.append(fitness)				
 			
-			## Get robot behaviour
-			#~ robot_bd = grid.set_of_visited_rects(e.xs, e.ys)
-			#~ print(f"Robot behaviour description: {robot_bd}")
-			
-			#~ print(f"Epuck 1: {pucks}")
-			
-			## Get robots behaviour	
-			#~ robot_1_bd = grid.set_of_visited_rects(pucks[0].xs, pucks[0].ys)
-			#~ robot_2_bd = grid.set_of_visited_rects(pucks[1].xs, pucks[1].ys)
-
-			## Here just create a third set with the two different behaviours
-			#~ str_robot_1_bd = str(robot_1_bd)
-			#~ str_robot_2_db = str(robot_2_bd)
-			
-			#~ final_bd = {str_robot_1_bd, str_robot_2_db}
-			
-			## Get cylinder behaviour
-			cylinder_bd = grid.set_of_visited_rects(c_xs, c_ys)
-			cylinder_bd_sorted = sorted(cylinder_bd)
-			str_cylinder_bd = str(cylinder_bd_sorted)
-	
-			## Get cylinder behaviour as final position (x,y)
-			#~ cylinder_final_pos = {c_xs[-1], c_ys[-1]}
-			## Sort the cylinder information to keep the order when transforming
-			## to string
-			#~ cylinder_final_pos_sorted = sorted(cylinder_final_pos)
-			#~ str_cylinder_final_pos = str(cylinder_final_pos_sorted)
-
-			## Normalize the distance between robots before calculating the average value
-			## Values calculated in the simulation
-			min_value = 5.67
-			max_value = 271.37
-	
-			normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
-
-			## Calculate the average value
-			#~ print(f"Original distance between robots: {total_dis_between_robots}")
-			if normalized_dist_between_robots != 0:
-				avg_normalized_dist_between_robots = sum(normalized_dist_between_robots) / len(normalized_dist_between_robots)
-			else:
-				normalized_dist_between_robots = 0
-
-			## Sort the normalized robot's distance value to keep the order when
-			## transforming to string
-			#~ avg_normalized_dist_between_robots_sorted = sorted(avg_normalized_dist_between_robots)
-			str_avg_normalized_dist_between_robots = str(avg_normalized_dist_between_robots)
-
-			final_bd = {str_avg_normalized_dist_between_robots, str_cylinder_bd}
-
-			## Here add the behaviour to the archive or not.
-			## Add the first behaviour to the archive
-			if len(archive.archive) == 0:
-				archive.insert_entry(genotype, final_bd, 0, genotype_id)
-				archive.add_novelty_to_behaviour(0, genotype_id)
-				
-				## Add novelty to population novelty
-				population_novelty.append(0)
-				
-				## Update genotype ID
-				genotype_id += 1
-
-			else:
-				## When there is at least one candidate in the archive
-				## This behaviour set is the new behaviour that is going
-				## To be compared with the behaviours in the archive
-				novelty, diffs = archive.compute_novelty(final_bd)
-				#~ print(f"Novelty for {robot_bd} is {novelty}")
-				archive.insert_entry(genotype, final_bd, novelty, genotype_id)
-				archive.add_novelty_to_behaviour(novelty, genotype_id)
-				#~ print("---------------------------------------------")
-				#~ print(f"Novelty archive: {archive.archive}")
-
-				## Add novelty to population novelty
-				population_novelty.append(novelty)
-				
-				## Update genotype ID
-				genotype_id += 1
-		
-		## Get the most novel and least novel behaviour
-		most_novel_genome = archive.get_most_novel()
-		least_novel_genome = archive.get_least_novel()
-		## Get the average novelty
-		avg_novelty_archive = archive.get_avg_novelty()
-		
-		#~ print("---------------------------------------------")
-		#~ print(f"Most novel genome: {most_novel_genome}")
-		#~ print("---------------------------------------------")
-		#~ print(f"Least novel genome: {least_novel_genome}")
-		#~ print("---------------------------------------------")
-		#~ print(f"Average novelty in archive: {avg_novelty_archive}")
-		#~ print("---------------------------------------------")
-		#~ print(f"Population novelty: {population_novelty}")
-		#~ print("---------------------------------------------")
-			
-		#~ best_fitness, best_fitness_val = population_get_fittest(population, population_fitness)
-		#~ average_fitness = population_get_average_fitness(population_fitness)
-		#~ print(f"Best Fitness params: {best_fitness}")
-		#~ print(f"Best Fitness value: {best_fitness_val}")
-		#~ print(f"Average Fitness: {average_fitness}")
+		best_fitness, best_fitness_val = population_get_fittest(population, population_fitness)
+		average_fitness = population_get_average_fitness(population_fitness)
+		print(f"Best Fitness params: {best_fitness}")
+		print(f"Best Fitness value: {best_fitness_val}")
+		print(f"Average Fitness: {average_fitness}")
 		
 		## Store average fitness over generations
-		#~ average_fitness_over_time.append(average_fitness)
-		
-		## Store average novelty over generations
-		average_novelty_over_time.append(avg_novelty_archive)
+		average_fitness_over_time.append(average_fitness)
 		
 		if(gen < num_gens-1):
-			population = population_reproduce_novelty(archive.archive, population, POPULATION_SIZE, GENOTYPE_SIZE)
+			population = population_reproduce(population, population_fitness, GENOTYPE_SIZE)
 			print(f"New population: {population}")
 
-	#~ return best_fitness, best_fitness_val, average_fitness_over_time	
-	return most_novel_genome, least_novel_genome, average_novelty_over_time, archive
+	return best_fitness, best_fitness_val, average_fitness_over_time	
 
 def plot_behaviours(archive):
 	"""
@@ -461,38 +355,21 @@ def main():
 	#~ print(f"Initial population: {population}")
 	
 	## Run optimization
-	#~ fittest_params, fittest_fitness, average_fitness_over_time = run_optimization(population)
+	fittest_params, fittest_fitness, average_fitness_over_time = run_optimization(population)
 	
-	## Run optimization
-	most_novel_genome, least_novel_genome, average_novelty_over_time, novelty_archive = run_optimization(population)
+	print("------------------------------------")
+	print(f"Best Fitness Params All Time: {fittest_params}")
+	print(f"Best Fitness Value All Time: {fittest_fitness}")
+	print(f"Average Fitness Per generation All Time: {average_fitness_over_time}")
+	print("Average Fitness All Time: ", sum(average_fitness_over_time)/len(average_fitness_over_time))
 	
-	print("---------------------------------------------")
-	print(f"Most novel genome All Time: {most_novel_genome}")
-	print("---------------------------------------------")
-	print(f"Least novel genome All Time: {least_novel_genome}")
-	print("---------------------------------------------")
-	print(f"Average novelty All Time: ", sum(average_novelty_over_time)/len(average_novelty_over_time))
-	print("---------------------------------------------")
-	squares_explored_most_novel = len(most_novel_genome["data"])
-	print(f"Explored squared by Most novel candidate: {squares_explored_most_novel}")
-	print("---------------------------------------------")
-	squares_explored_least_novel = len(least_novel_genome["data"])
-	print(f"Explored squared by LEAST novel candidate: {squares_explored_least_novel}")
-	print("---------------------------------------------")
-	print(f"Final novelty archive: {novelty_archive.archive}")
-	
-	#~ print("------------------------------------")
-	#~ print(f"Best Fitness Params All Time: {fittest_params}")
-	#~ print(f"Best Fitness Value All Time: {fittest_fitness}")
-	#~ print(f"Average Fitness Per generation All Time: {average_fitness_over_time}")
-	#~ print("Average Fitness All Time: ", sum(average_fitness_over_time)/len(average_fitness_over_time))
-	
-	
+	e, grid, c_xs, c_ys = run_once(fittest_params, print_stuff=True, view=True)
+
 	## Save the plot for the behaviours in the archive
-	plot_behaviours(novelty_archive.archive)
+	#~ plot_behaviours(novelty_archive.archive)
 	
 	## Save the final archive in .txt file
-	save_novelty_archive(novelty_archive.archive)
+	#~ save_novelty_archive(novelty_archive.archive)
 
 main()
 
