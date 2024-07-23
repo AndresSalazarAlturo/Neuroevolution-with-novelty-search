@@ -69,13 +69,43 @@ def random_number_close_range(current_value, x, bounds, int_value = False):
 
     return random_rational_number
 
+#~ def population_reproduce(p,fitness, n_genes):
+
+    #~ pop_size = len(p)
+    #~ new_p = []
+
+    #~ dataframe = pd.DataFrame({"Param":p,"Fitness":fitness})
+    #~ dataframe = dataframe.sort_values(['Fitness'], ascending=False)
+    #~ dataframe = dataframe.reset_index(drop=True)
+
+    #~ print("Data frame: ", dataframe)
+
+    #~ # print("input population: ", p)
+
+    #~ sorted_p = dataframe['Param'].tolist()
+
+    #~ # print("Sorted parameters: ", sorted_p)
+
+    #~ ## Selection
+    #~ elite_part = round(ELITE_PART * pop_size)
+    #~ new_p = new_p + sorted_p[:elite_part]
+
+    #~ for i in range(pop_size-elite_part):
+        #~ mom = p[random.randint(0, pop_size - 1)]
+        #~ dad = p[random.randint(0, pop_size - 1)]
+        #~ child = crossover(mom, dad, n_genes, p)
+        #~ child = mutate(child, n_genes, FIXED_BIAS)
+        #~ new_p.append(child)
+
+    #~ return new_p
+    
 def population_reproduce(p,fitness, n_genes):
 
     pop_size = len(p)
     new_p = []
 
     dataframe = pd.DataFrame({"Param":p,"Fitness":fitness})
-    dataframe = dataframe.sort_values(['Fitness'], ascending=False)
+    dataframe = dataframe.sort_values(['Fitness'], ascending=True)
     dataframe = dataframe.reset_index(drop=True)
 
     #~ print("Data frame: ", dataframe)
