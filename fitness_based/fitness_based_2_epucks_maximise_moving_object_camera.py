@@ -15,6 +15,7 @@ from multi_layer_nn_controller import *
 ## World's objects positions
 ## 80, 50
 ## 100, 140
+## 140, 40
 ## Desire final position for cylinder = 170, 175; 180, 180
 desired_cylinder_pos = [180, 180]
 initial_cylinder_pos = [140, 40]
@@ -26,8 +27,8 @@ rectangle_small_horizontal_pos = [100, 55]
 num_robots = 2
 
 ## GA parameters
-num_gens = 100
-POPULATION_SIZE = 20
+num_gens = 120
+POPULATION_SIZE = 40
 GENOTYPE_SIZE = 215
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
@@ -42,7 +43,7 @@ inputs_size = 68
 
 ## Path to save robot behaviour
 folder_path = './2_epuck_robots_behaviour_17'
-## _100Gens_50PopSize_40Archive_Levenshtein_DistanceBetweenRobots_and_CylinderTrajectory
+## _150Gens_100PopSize_40Archive_Levenshtein_DistanceBetweenRobots_and_CylinderTrajectory
 
 class MyEPuck(pyenki.EPuck):
 	
@@ -157,8 +158,9 @@ def run_once(genome, print_stuff=False, view=False):
 	r_3.collisionElasticity = 0
 	w.addObject(r_3)
 
+	## 70.000
 	# create a cylindrical object and add to world
-	c = pyenki.CircularObject(15, 15, 1000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
+	c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
 	#~ c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(0, 0, 0, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
 	c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
@@ -176,7 +178,9 @@ def run_once(genome, print_stuff=False, view=False):
 		## Create an instance of e-puck class
 		e = MyEPuck(genome, num_input_neurons, output_size, inputs_size)
 		pucks[n] = e
-		e.pos = (n * 50, n * 60)
+		#~ e.pos = (n * 50, n * 60)
+		e.pos = (n * 100, n * 40)
+		#~ e.pos = (100  + (n*10), 40)
 		#~ e.pos = (n * 0, n * 1)
 		#~ e.pos = (n * 130, n * 90)
 		e.collisionElasticity = 0
@@ -196,7 +200,7 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1000): ##1000
+		for i in range(1000): ##1500
 			w.step(0.1, 3)
 			#~ c_xs.append(c.pos[0])
 			#~ c_ys.append(c.pos[1])
@@ -246,6 +250,9 @@ def run_optimization(population):
 	## list to store average fitness
 	average_fitness_over_time = []
 	
+	## Good candidate found
+	found = False
+	
 	## Run GA for a fixed number of generations
 	for gen in range(num_gens):
 		population_fitness = []
@@ -258,7 +265,7 @@ def run_optimization(population):
 			## Get genotype from population
 			genotype = population[ind]
 			
-			print(f"Run optimization, genotype sent: {genotype}")
+			#~ print(f"Run optimization, genotype sent: {genotype}")
 			
 			##Evaluate genotype
 			pucks, grid, c_xs, c_ys = run_once(genotype, print_stuff=True, view=False)
@@ -272,8 +279,12 @@ def run_optimization(population):
 													cylinder_final_pos[1])
 
 			## Add fitness to population fitness
-			population_fitness.append(fitness)				
-			
+			population_fitness.append(fitness)		
+
+			## Stop if fitness is less than 40
+			if fitness <= 40:
+				found = True
+
 		best_fitness, best_fitness_val = population_get_fittest(population, population_fitness)
 		average_fitness = population_get_average_fitness(population_fitness)
 		print(f"Best Fitness params: {best_fitness}")
@@ -282,71 +293,81 @@ def run_optimization(population):
 		
 		## Store average fitness over generations
 		average_fitness_over_time.append(average_fitness)
+
+		if found:
+			break		
+
+		#~ best_fitness, best_fitness_val = population_get_fittest(population, population_fitness)
+		#~ average_fitness = population_get_average_fitness(population_fitness)
+		#~ print(f"Best Fitness params: {best_fitness}")
+		#~ print(f"Best Fitness value: {best_fitness_val}")
+		#~ print(f"Average Fitness: {average_fitness}")
+		
+		#~ ## Store average fitness over generations
+		#~ average_fitness_over_time.append(average_fitness)
 		
 		if(gen < num_gens-1):
 			population = population_reproduce(population, population_fitness, GENOTYPE_SIZE)
-			print(f"New population: {population}")
+			#~ print(f"New population: {population}")
 
-	return best_fitness, best_fitness_val, average_fitness_over_time	
-
-def plot_behaviours(archive):
+	return best_fitness, best_fitness_val, average_fitness_over_time
+	
+def plot_behaviours(best_fitness_params, best_fitness_val):
 	"""
-		Plot archive behaviours and save them.
-		:param archive: Final archive list of dictionaries.
+		Plot best fitness genotype behaviour.
+		:param best_fitness_params: List with the best fitness genotype.
+		:param best_fitness_val: Final best fitness value.
 	"""
 	
-	for candidate in archive:
-		
-		## Run the most novel candidate to plot robot and cylinder trajectory
-		pucks, grid, c_xs, c_ys, total_dis_between_robots = run_once(candidate['genome'], print_stuff=True, view=False)
-		
-		## Plot robot behaviour
-		plt.figure()
-		for robot_number in range(num_robots):
-			if robot_number == 0:
-				trajectory_color = 'blue'
-				robot_trajectory_number = f"Robot {robot_number}"
-			else:
-				trajectory_color = 'green'
-				robot_trajectory_number = f"Robot {robot_number}"
+	## Run the most novel candidate to plot robot and cylinder trajectory
+	pucks, grid, c_xs, c_ys = run_once(best_fitness_params, print_stuff=True, view=False)
+	
+	## Plot robot behaviour
+	plt.figure()
+	for robot_number in range(num_robots):
+		if robot_number == 0:
+			trajectory_color = 'blue'
+			robot_trajectory_number = f"Robot {robot_number}"
+		else:
+			trajectory_color = 'green'
+			robot_trajectory_number = f"Robot {robot_number}"
 
-			## Plot robot trajectory
-			plt.plot(pucks[robot_number].xs, pucks[robot_number].ys, color=trajectory_color, linewidth=0.5, label=robot_trajectory_number)
-			## Add a square at the start of the trajectory
-			plt.plot(pucks[robot_number].xs[0], pucks[robot_number].ys[0], marker='s', markersize=5, color=trajectory_color, label='Start')
-			## Add a circle marker at the end of the line
-			plt.plot(pucks[robot_number].xs[-1], pucks[robot_number].ys[-1], marker='o', markersize=5, color=trajectory_color, label='End')
-			
-		## Cylinder trajectory
-		plt.plot(c_xs, c_ys, color='red', linewidth=0.5, label='Cylinder trajectory')
+		## Plot robot trajectory
+		plt.plot(pucks[robot_number].xs, pucks[robot_number].ys, color=trajectory_color, linewidth=0.5, label=robot_trajectory_number)
 		## Add a square at the start of the trajectory
-		plt.plot(c_xs[0], c_ys[0], marker='s', markersize=5, color='red', label='Start')
+		plt.plot(pucks[robot_number].xs[0], pucks[robot_number].ys[0], marker='s', markersize=5, color=trajectory_color, label='Start')
 		## Add a circle marker at the end of the line
-		plt.plot(c_xs[-1], c_ys[-1], marker='o', markersize=5, color='red', label='End')
-		## Plot grid
-		grid.plot_grid()
-		plt.title(f"Candidate behaviour ID {candidate['genome_id']}")
-		plt.legend(loc='upper right', fontsize='small')
-		file_name = f"candidate_behaviour_id_{candidate['genome_id']}"
-		plt.savefig(f"{folder_path}/{file_name}")
-		plt.close()
-		#~ plt.show()
-
-def save_novelty_archive(archive):
+		plt.plot(pucks[robot_number].xs[-1], pucks[robot_number].ys[-1], marker='o', markersize=5, color=trajectory_color, label='End')
+		
+	## Cylinder trajectory
+	plt.plot(c_xs, c_ys, color='red', linewidth=0.5, label='Cylinder trajectory')
+	## Add a square at the start of the trajectory
+	plt.plot(c_xs[0], c_ys[0], marker='s', markersize=5, color='red', label='Start')
+	## Add a circle marker at the end of the line
+	plt.plot(c_xs[-1], c_ys[-1], marker='o', markersize=5, color='red', label='End')
+	## Plot grid
+	grid.plot_grid()
+	
+	str_best_fitness_val = str(best_fitness_val)
+	plt.title(f"Candidate behaviour Fitness {str_best_fitness_val}")
+	plt.legend(loc='upper right', fontsize='small')
+	file_name = f"candidate5_behaviour_fitness_{round(best_fitness_val)}"
+	plt.savefig(f"{folder_path}/{file_name}")
+	plt.close()
+	#~ plt.show()
+	
+def save_best_fitness_data(best_fitness_params):
 	"""
-		Save novelty archive as text file.
-		:param archive: Final archive list of dictionaries.
+		Save the best genotype and fitness value.
+		:param best_fitness_params: List with the best fitness genotype.
 	"""
 	
-	## Convert sets to list for json serialization
-	for item in archive:
-		item['data'] = list(item['data'])
+	## Convert array to list
+	best_fitness_params_list = best_fitness_params.tolist()
 	
-	filepath = folder_path + "/final_novelty_archive.json"
-	with open(filepath, 'w') as novelty_file:
-		json.dump(archive, novelty_file, indent=4)
-		#~ for item in archive:
-			#~ novelty_archive_file.write(f"Genome ID: {str(item['genome_id'])}, Genome: {', '.join(item['genome'])}, Data: {', '.join(item['data'])}, Novelty: {item['novelty']}\n")
+	filepath = folder_path + "/final_best_genotype5.json"
+	with open(filepath, 'w') as genotype_best_file:
+		json.dump(best_fitness_params_list, genotype_best_file, indent=4)
 
 def main():
 	
@@ -363,13 +384,13 @@ def main():
 	print(f"Average Fitness Per generation All Time: {average_fitness_over_time}")
 	print("Average Fitness All Time: ", sum(average_fitness_over_time)/len(average_fitness_over_time))
 	
-	e, grid, c_xs, c_ys = run_once(fittest_params, print_stuff=True, view=True)
+	#~ e, grid, c_xs, c_ys = run_once(fittest_params, print_stuff=True, view=True)
 
 	## Save the plot for the behaviours in the archive
-	#~ plot_behaviours(novelty_archive.archive)
+	plot_behaviours(fittest_params, fittest_fitness)
 	
 	## Save the final archive in .txt file
-	#~ save_novelty_archive(novelty_archive.archive)
+	save_best_fitness_data(fittest_params)
 
 main()
 
@@ -399,6 +420,6 @@ main()
 #~ print(f"{tested_genome}")
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(tested_genome, print_stuff=True, view=True)
 
-#~ params_test = [0] * 215
+#~ params_test = [0.1] * 215
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
 #~ print(f"Max distance between robots: {total_dis_between_robots}")
