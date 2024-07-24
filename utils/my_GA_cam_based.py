@@ -108,7 +108,7 @@ def population_reproduce(p,fitness, n_genes):
     dataframe = dataframe.sort_values(['Fitness'], ascending=True)
     dataframe = dataframe.reset_index(drop=True)
 
-    #~ print("Data frame: ", dataframe)
+    print("Data frame: ", dataframe)
 
     # print("input population: ", p)
 
@@ -137,9 +137,9 @@ def population_get_fittest(p,f):
     f = np.array(f)
     p = np.array(p)
 
-    pop_best_fitness = max(f)
+    pop_best_fitness = min(f)
     # print("max fitness", pop_best_fitness)
-    pop_best_fitness_pos = np.argmax(f)
+    pop_best_fitness_pos = np.argmin(f)
 
     # print("pos best fitness position: ", pop_best_fitness_pos)
 
