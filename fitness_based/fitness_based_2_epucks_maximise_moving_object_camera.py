@@ -27,8 +27,8 @@ rectangle_small_horizontal_pos = [100, 55]
 num_robots = 2
 
 ## GA parameters
-num_gens = 120
-POPULATION_SIZE = 40
+num_gens = 150
+POPULATION_SIZE = 60
 GENOTYPE_SIZE = 215
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
@@ -158,7 +158,7 @@ def run_once(genome, print_stuff=False, view=False):
 	r_3.collisionElasticity = 0
 	w.addObject(r_3)
 
-	## 70.000
+	## 70.000 - 30.000
 	# create a cylindrical object and add to world
 	c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
 	#~ c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(0, 0, 0, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
@@ -284,6 +284,7 @@ def run_optimization(population):
 			## Stop if fitness is less than 40
 			if fitness <= 40:
 				found = True
+				break
 
 		best_fitness, best_fitness_val = population_get_fittest(population, population_fitness)
 		average_fitness = population_get_average_fitness(population_fitness)
@@ -351,7 +352,7 @@ def plot_behaviours(best_fitness_params, best_fitness_val):
 	str_best_fitness_val = str(best_fitness_val)
 	plt.title(f"Candidate behaviour Fitness {str_best_fitness_val}")
 	plt.legend(loc='upper right', fontsize='small')
-	file_name = f"candidate5_behaviour_fitness_{round(best_fitness_val)}"
+	file_name = f"candidate11_behaviour_fitness_{round(best_fitness_val)}_Gens{num_gens}_PopSize{POPULATION_SIZE}"
 	plt.savefig(f"{folder_path}/{file_name}")
 	plt.close()
 	#~ plt.show()
@@ -365,7 +366,7 @@ def save_best_fitness_data(best_fitness_params):
 	## Convert array to list
 	best_fitness_params_list = best_fitness_params.tolist()
 	
-	filepath = folder_path + "/final_best_genotype5.json"
+	filepath = folder_path + "/final_best_genotyp11.json"
 	with open(filepath, 'w') as genotype_best_file:
 		json.dump(best_fitness_params_list, genotype_best_file, indent=4)
 
