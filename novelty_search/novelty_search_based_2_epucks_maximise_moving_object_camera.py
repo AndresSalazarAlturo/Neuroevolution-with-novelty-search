@@ -11,6 +11,7 @@ import math
 from new_GA_NS import *
 from novelty_archive import *
 from multi_layer_nn_controller import *
+from multiprocessing import Pool
 
 ## World's objects positions
 ## 80, 50
@@ -25,8 +26,9 @@ rectangle_small_horizontal_pos = [100, 55]
 num_robots = 2
 
 ## GA parameters
-num_gens = 150
-POPULATION_SIZE = 50
+num_gens = 160
+## 200 in Gomes - pop size
+POPULATION_SIZE = 80
 GENOTYPE_SIZE = 215
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
@@ -39,9 +41,12 @@ inputs_size = 68
 ## Archive size
 archive_size = 40
 
+## Multiprocessing - Processors used
+#~ pool = Pool(3)
+
 ## Path to save robot behaviour
-folder_path = './2_epuck_robots_behaviour_13'
-## _150Gens_50PopSize_40Archive_Levenshtein_DistanceBetweenRobots_and_CylinderFinalPos
+folder_path = './results/2_epuck_robots_behaviour_24'
+## _160Gens_80PopSize_40Archive_Levenshtein_DistanceBetweenRobots_and_CylinderTrajectory
 
 class MyEPuck(pyenki.EPuck):
 	
@@ -157,7 +162,7 @@ def run_once(genome, print_stuff=False, view=False):
 	w.addObject(r_3)
 
 	# create a cylindrical object and add to world
-	c = pyenki.CircularObject(15, 15, 1000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
+	c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
 	#~ c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(0, 0, 0, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
 	c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
@@ -176,17 +181,11 @@ def run_once(genome, print_stuff=False, view=False):
 		e = MyEPuck(genome, num_input_neurons, output_size, inputs_size)
 		pucks[n] = e
 		e.pos = (n * 50, n * 60)
+		#~ e.pos = (n * 100, n * 40)
 		#~ e.pos = (n * 0, n * 1)
 		#~ e.pos = (n * 130, n * 90)
 		e.collisionElasticity = 0
 		w.addObject(e)
-
-	#~ print(f"Pucks after being created: {pucks}")
-
-	#~ e = MyEPuck(genome)
-	#~ e.pos = (50, 60)
-	#~ e.collisionElasticity = 0
-	#~ w.addObject(e)
 
 	## Average distance between the robots
 	total_dis_between_robots = []
@@ -195,7 +194,7 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1000): ##1000
+		for i in range(1200): ##1000
 			w.step(0.1, 3)
 			#~ c_xs.append(c.pos[0])
 			#~ c_ys.append(c.pos[1])
@@ -265,12 +264,12 @@ def run_optimization(population):
 
 			## Get genotype from population
 			genotype = population[ind]
-			
-			print(f"Run optimization, genotype sent: {genotype}")
-			
+
+			#~ print(f"Run optimization, genotype sent: {genotype}")
+
 			##Evaluate genotype
 			pucks, grid, c_xs, c_ys, total_dis_between_robots = run_once(genotype, print_stuff=True, view=False)
-			
+
 			## Final cylinder position
 			#~ cylinder_final_pos = (c_xs[-1], c_ys[-1])
 			#~ print(f"Cylinder final pos: X:{cylinder_final_pos[0]}, Y:{cylinder_final_pos[1]}")
@@ -300,15 +299,13 @@ def run_optimization(population):
 			
 			## Get cylinder behaviour
 			#~ cylinder_bd = grid.set_of_visited_rects(c_xs, c_ys)
-			#~ str_cylinder_bd = str(cylinder_bd)
-			
-			#~ final_bd = {str_robot_1_bd, str_robot_2_db, str_cylinder_bd}
-			#~ final_bd = cylinder_bd
+			#~ cylinder_bd_sorted = sorted(cylinder_bd)
+			#~ str_cylinder_bd = str(cylinder_bd_sorted)
+	
 			## Get cylinder behaviour as final position (x,y)
 			cylinder_final_pos = {c_xs[-1], c_ys[-1]}
 			## Sort the cylinder information to keep the order when transforming
 			## to string
-			#~ print(f"CYlinder final POS: {cylinder_final_pos}")
 			cylinder_final_pos_sorted = sorted(cylinder_final_pos)
 			str_cylinder_final_pos = str(cylinder_final_pos_sorted)
 
@@ -392,7 +389,7 @@ def run_optimization(population):
 		
 		if(gen < num_gens-1):
 			population = population_reproduce_novelty(archive.archive, population, POPULATION_SIZE, GENOTYPE_SIZE)
-			print(f"New population: {population}")
+			#~ print(f"New population: {population}")
 
 	#~ return best_fitness, best_fitness_val, average_fitness_over_time	
 	return most_novel_genome, least_novel_genome, average_novelty_over_time, archive
@@ -465,6 +462,14 @@ def main():
 	## Run optimization
 	#~ fittest_params, fittest_fitness, average_fitness_over_time = run_optimization(population)
 	
+	## Run optimization with multiprocessing
+	#~ results = pool.map(run_optimization, population)
+	#~ print(f"Results: {results}")
+	
+	#~ p.close()
+	#~ p.join()
+	#~ p.terminate()
+	
 	## Run optimization
 	most_novel_genome, least_novel_genome, average_novelty_over_time, novelty_archive = run_optimization(population)
 	
@@ -496,7 +501,60 @@ def main():
 	## Save the final archive in .txt file
 	save_novelty_archive(novelty_archive.archive)
 
-main()
+if __name__ == '__main__':
+	
+	main()
+	
+	#~ from multiprocessing import Pool
+	
+	## Create initial population
+	#~ population = create_random_parameters_set(POPULATION_SIZE, GENOTYPE_SIZE, weights_bias_range)
+	#~ print(f"Initial population: {population}")
+	
+	## Run optimization
+	#~ fittest_params, fittest_fitness, average_fitness_over_time = run_optimization(population)
+	
+	#~ pool = Pool(3)
+	
+	## Run optimization with multiprocessing
+	#~ results = pool.apply_async(run_optimization, population)
+	#~ print(f"Results: {dir(results)}")
+	
+	#~ pool.close()
+	#~ pool.join()
+	#~ pool.terminate()
+	
+	#~ ## Run optimization
+	#~ most_novel_genome, least_novel_genome, average_novelty_over_time, novelty_archive = run_optimization(population)
+	
+	#~ print("---------------------------------------------")
+	#~ print(f"Most novel genome All Time: {most_novel_genome}")
+	#~ print("---------------------------------------------")
+	#~ print(f"Least novel genome All Time: {least_novel_genome}")
+	#~ print("---------------------------------------------")
+	#~ print(f"Average novelty All Time: ", sum(average_novelty_over_time)/len(average_novelty_over_time))
+	#~ print("---------------------------------------------")
+	#~ squares_explored_most_novel = len(most_novel_genome["data"])
+	#~ print(f"Explored squared by Most novel candidate: {squares_explored_most_novel}")
+	#~ print("---------------------------------------------")
+	#~ squares_explored_least_novel = len(least_novel_genome["data"])
+	#~ print(f"Explored squared by LEAST novel candidate: {squares_explored_least_novel}")
+	#~ print("---------------------------------------------")
+	#~ print(f"Final novelty archive: {novelty_archive.archive}")
+	
+	#~ print("------------------------------------")
+	#~ print(f"Best Fitness Params All Time: {fittest_params}")
+	#~ print(f"Best Fitness Value All Time: {fittest_fitness}")
+	#~ print(f"Average Fitness Per generation All Time: {average_fitness_over_time}")
+	#~ print("Average Fitness All Time: ", sum(average_fitness_over_time)/len(average_fitness_over_time))
+	
+	
+	#~ ## Save the plot for the behaviours in the archive
+	#~ plot_behaviours(novelty_archive.archive)
+	
+	#~ ## Save the final archive in .txt file
+	#~ save_novelty_archive(novelty_archive.archive)
+
 
 #### Test Candidate ####
 ## Path to save robot behaviour
