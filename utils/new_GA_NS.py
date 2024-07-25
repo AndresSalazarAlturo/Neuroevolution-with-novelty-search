@@ -86,7 +86,7 @@ def population_reproduce(p,fitness, n_genes):
     dataframe = dataframe.sort_values(['Fitness'], ascending=False)
     dataframe = dataframe.reset_index(drop=True)
 
-    print("Data frame: ", dataframe)
+    #~ print("Data frame: ", dataframe)
 
     # print("input population: ", p)
 
