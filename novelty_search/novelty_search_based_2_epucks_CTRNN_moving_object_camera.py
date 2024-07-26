@@ -31,7 +31,7 @@ num_robots = 1
 num_gens = 2
 ## 200 in Gomes - pop size
 POPULATION_SIZE = 4
-GENOTYPE_SIZE = 215
+GENOTYPE_SIZE = 236
 ## Weights, bias bounds
 weights_bias_range = np.arange(-5, 5, 0.5)
 
@@ -52,19 +52,22 @@ folder_path = './results/2_epuck_CTRNN_robots_behaviour_1'
 class MyEPuck(pyenki.EPuck):
 	
 	# init EPuck. You can add any args and other code you need
-	def __init__(self, params, net_size, step_size):
+	def __init__(self, genome, net_size, step_size):
 		super(MyEPuck, self).__init__()
-		self.params = params
+		## Convert list to array
+		genome = np.array(genome)
 		
 		self.setLedRing(False)
 
 		## Save robot info
 		self.xs = []
 		self.ys = []
+		
+		#~ print(f"Genome: {type(genome[0:12])}")
 
 		## CTRNN parameters
-		net_size = 12 # number of neurons in CTRNN
-		step_size = 0.1 # quite large - a smaller value might be more stable
+		#~ net_size = 12 # number of neurons in CTRNN
+		#~ step_size = 0.1 # quite large - a smaller value might be more stable
 		# set up CTRNN
 		self.network = CTRNN(size=net_size, step_size=step_size)
 		# CTRNN parameters
@@ -114,18 +117,29 @@ class MyEPuck(pyenki.EPuck):
 		final_inputs = camera_inputs + ir_sensor_inputs		
 		#~ print(f"Final inputs size: {len(final_inputs)}") 68!
 		
-		## Calculate the motor speeds with multi_layer feed forward controller
-		controller_obj = ForwardNeuralNetwork(self.params, self.num_input_neurons, self.output_size, self.inputs_size)
-		#~ ## Outputs
-		commands = controller_obj.forward(final_inputs)
+		## Pad inputs with zeros: first 2 neurons are motor neurons, last 2 neurons are interneurons, 
+		## which do no connect directly to the outside of the CTRNN
+		inputs = np.array([0, 0] + final_inputs + [0, 0]) 
+		#~ print(f"Final inputs: {len(inputs)}")
+		## Step the CTRNN
+		self.network.euler_step(inputs)
+		## Motor commands are taken from neurons 0 and 1
+		commands = self.network.outputs[:2].tolist()
 		
 		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
-		self.leftSpeed = scale * commands[0][0]
-		self.rightSpeed = scale * commands[0][1]
+		self.leftSpeed = scale * commands[0]
+		self.rightSpeed = scale * commands[1]
 
 		## Save pos
 		self.xs.append(self.pos[0])
 		self.ys.append(self.pos[1])
+		
+		## CTRNN data
+		self.angles.append(self.angle)
+		self.sensors.append(sensors)
+		self.inputs.append(inputs)
+		self.outputs.append(self.network.outputs.tolist())
+		self.states.append(self.network.states.tolist())
 
 def euclidean_distance(x1, y1, x2, y2):
 	"""
@@ -208,7 +222,7 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1): ##1200
+		for i in range(100): ##1200
 			w.step(0.1, 3)
 			#~ c_xs.append(c.pos[0])
 			#~ c_ys.append(c.pos[1])
