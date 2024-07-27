@@ -4,7 +4,7 @@ import numpy as np
 
 MUTATION_PROBABILITY = 0.1
 FIXED_BIAS = False
-BOUNDS = 5
+BOUNDS = [0.01, 0.99]
 ELITE_PART = 0.4
 
 def create_random_parameters_set(pop_size, geno_size, weights_bias_range):
@@ -64,10 +64,10 @@ def random_number_close_range(current_value, x, bounds, int_value = False):
 
     else:
         ## Generate random rational number between lower and upper bounds
-        close_range = np.arange(lower_bound, upper_bound, 0.5)
+        close_range = np.arange(lower_bound, upper_bound, 0.1)
         # print("Close range value: ", close_range)
         random_rational_number = random.choice(close_range)
-        while random_rational_number < -bounds or random_rational_number > bounds:
+        while random_rational_number < bounds[0] or random_rational_number > bounds[1]:
             random_rational_number = random.choice(close_range)
 
     return random_rational_number
