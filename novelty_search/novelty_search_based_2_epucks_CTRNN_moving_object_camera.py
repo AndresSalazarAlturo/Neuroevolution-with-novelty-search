@@ -29,9 +29,9 @@ rectangle_small_horizontal_pos = [100, 55]
 num_robots = 2
 
 ## GA parameters
-num_gens = 1
+num_gens = 2
 ## 200 in Gomes - pop size
-POPULATION_SIZE = 1
+POPULATION_SIZE = 2
 GENOTYPE_SIZE = 712
 ## Weights, bias bounds
 #~ weights_bias_range = np.arange(-5, 5, 0.5)
@@ -78,11 +78,15 @@ class MyEPuck(pyenki.EPuck):
 		self.network.taus = 1 + (5 * genome[0:net_size])
 		#~ print(f"Not normalized taus: {normalized_genome[0:net_size]}")
 		#~ print(f"Taus values: {self.network.taus}")
-		self.network.biases = 4 * (genome[net_size:2*net_size] - 0.5)		
+		self.network.biases = 4 * (genome[net_size:2*net_size] - 0.5)	
+		#~ print(f"Biases values: {self.network.biases}")
 		self.network.weights = 4 * (np.reshape(genome[net_size*2:net_size*2+net_size**2], (net_size, net_size)) - 0.5)
+		#~ print(f"Network weights values: {self.network.weights}")
 		## Extract the weights from genome
 		genome_input_weights = 40 * (genome[net_size*2+net_size**2:] - 0.5)
-		#~ print(f"Genome input weiths: {genome_input_weights}")
+		#~ print(f"Input weights values: {genome_input_weights}")
+		## I subtract 4 to net_size as 4 of the 12 neurons will be set to zero
+		## Thus, is not necessary to have a big genome. (I think this is correct, ask Chris!!!)
 		self.input_weights = genome_input_weights.reshape(net_size - 4, sensor_inputs)
 		#~ print(f"Input weigths INIT: {self.input_weights}")
 		# force initial states to be all zero - by default, they are randomised
@@ -117,7 +121,7 @@ class MyEPuck(pyenki.EPuck):
 		for pixel in range(len(camera_obj)):
 			#~ print(f"Camera ToGray pixel #{pixel + 1}: {camera_obj[pixel].toGray()}")
 			camera_inputs.append(camera_obj[pixel].toGray())
-			
+
 		#~ print(f"Camera values: {camera_inputs}")
 
 		## Get robot's raw proximity sensor values
@@ -125,7 +129,7 @@ class MyEPuck(pyenki.EPuck):
 		#~ print(f"IR sensor values: {type(ir_sensors)}")
 		## Scale sensor values down by factor of 1000
 		ir_sensor_inputs = (0.001 * np.array(ir_sensors)).tolist()
-		
+
 		## Concatenate the camera and IR inputs
 		final_sensor_inputs = camera_inputs + ir_sensor_inputs
 		array_final_sensor_inputs = np.array(final_sensor_inputs)
@@ -135,12 +139,12 @@ class MyEPuck(pyenki.EPuck):
 		CTRNN_inputs_weights = self.input_weights.dot(array_final_sensor_inputs).tolist()
 		#~ print(f"CTRNN Inputs dot weights: {len(CTRNN_inputs_weights)}")
 		#~ print(f"CTRNN Inputs dot weights values: {CTRNN_inputs_weights}")
-		
+
 		## Pad inputs with zeros: first 2 neurons are motor neurons, last 2 neurons are interneurons, 
 		## which do no connect directly to the outside of the CTRNN
 		CTRNN_final_inputs_weights = np.array([0, 0] + CTRNN_inputs_weights + [0, 0]) 
-		print(f"CTRNN FINAL Input values: {CTRNN_final_inputs_weights}")
-		
+		#~ print(f"CTRNN FINAL Input values: {CTRNN_final_inputs_weights}")
+
 		## Step the CTRNN
 		self.network.euler_step(some_input)
 		## Motor commands are taken from neurons 0 and 1
@@ -242,7 +246,7 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1000): ##1200
+		for i in range(100): ##1200
 			w.step(0.1, 3)
 			#~ c_xs.append(c.pos[0])
 			#~ c_ys.append(c.pos[1])
