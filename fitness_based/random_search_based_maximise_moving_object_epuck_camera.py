@@ -54,8 +54,16 @@ class MyEPuck(pyenki.EPuck):
 
 		#~ print(f"Inputs: {inputs}")
 
+		## Get robot's raw proximity sensor values
+		sensors = self.proximitySensorValues
+		## Scale sensor values down by factor of 1000
+		ir_inputs = (0.001 * np.array(sensors)).tolist()
+
+		## Concatenate the camera and IR inputs
+		final_inputs = inputs + ir_inputs
+
 		## Motor commands are taken from nn_controller function
-		commands = self.nn_controller(inputs, self.params)
+		commands = self.nn_controller(final_inputs, self.params)
 		#~ print(f"Commands: {commands}")
 		
 		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
