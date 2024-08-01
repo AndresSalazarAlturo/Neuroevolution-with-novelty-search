@@ -20,7 +20,7 @@ from CTRNN import CTRNN
 ## Desire final position for cylinder = 170, 175; 180, 180
 desired_cylinder_pos = [180, 180]
 initial_cylinder_pos = [140, 40]
-#~ initial_cylinder_pos = [30, 30]
+#~ initial_cylinder_pos = [40, 10]
 rectangle_big_horizontal_pos = [130, 135]
 rectangle_vertical_pos = [70, 90]
 rectangle_small_horizontal_pos = [100, 55]
@@ -29,9 +29,9 @@ rectangle_small_horizontal_pos = [100, 55]
 num_robots = 2
 
 ## GA parameters
-num_gens = 2
+num_gens = 10
 ## 200 in Gomes - pop size
-POPULATION_SIZE = 2
+POPULATION_SIZE = 40
 GENOTYPE_SIZE = 712
 ## Weights, bias bounds
 #~ weights_bias_range = np.arange(-5, 5, 0.5)
@@ -39,7 +39,7 @@ weights_bias_range = np.arange(0.01, 0.99, 0.01)
 
 ## CTRNN related
 net_size = 12
-step_size = 0.1
+step_size = 0.001
 ## This are the number of values from the camera and IR sensors
 sensor_inputs = 68
 
@@ -50,8 +50,8 @@ archive_size = 10
 #~ pool = Pool(3)
 
 ## Path to save robot behaviour
-folder_path = './results/2_epuck_CTRNN_robots_behaviour_1'
-## _100Gens_80PopSize_40Archive_Levenshtein_DistanceBetweenRobots_and_CylinderTrajectory
+folder_path = './results/2_epuck_CTRNN_robots_behaviour_2'
+## _150Gens_80PopSize_40Archive_Euclidean_DistanceBetweenRobots_and_CylinderTrajectory
 
 class MyEPuck(pyenki.EPuck):
 	
@@ -62,7 +62,8 @@ class MyEPuck(pyenki.EPuck):
 		genome = np.array(genome)
 		
 		#~ print(f"Genome: {genome}")
-		
+		#~ print(f"Genome length: {len(genome)}")
+
 		#~ self.setLedRing(False)
 
 		## Save robot info
@@ -82,15 +83,23 @@ class MyEPuck(pyenki.EPuck):
 		#~ print(f"Biases values: {self.network.biases}")
 		self.network.weights = 4 * (np.reshape(genome[net_size*2:net_size*2+net_size**2], (net_size, net_size)) - 0.5)
 		#~ print(f"Network weights values: {self.network.weights}")
+		
 		## Extract the weights from genome
 		genome_input_weights = 40 * (genome[net_size*2+net_size**2:] - 0.5)
 		#~ print(f"Input weights values: {genome_input_weights}")
+		#~ print(f"Input weights length: {len(genome_input_weights)}")
 		## I subtract 4 to net_size as 4 of the 12 neurons will be set to zero
 		## Thus, is not necessary to have a big genome. (I think this is correct, ask Chris!!!)
+		#~ self.input_weights = genome_input_weights.reshape(net_size - 4, sensor_inputs)
 		self.input_weights = genome_input_weights.reshape(net_size - 4, sensor_inputs)
+		#~ print(f"Input weights values: {self.input_weights}")
+		#~ print(f"Input weights values: {len(self.input_weights)}")
+		
+		## If using just the IR sensors
+		#~ self.input_weights = 40 * (genome[net_size*2+net_size**2:] - 0.5)
 		#~ print(f"Input weigths INIT: {self.input_weights}")
 		# force initial states to be all zero - by default, they are randomised
-		self.network.states = self.network.states * 0
+		#~ self.network.states = self.network.states * 0
 
 	# the EPuck's controller. You can't add args to this method, so any parameters you require must be set in init or other code
 	def controlStep(self, dt):
@@ -120,36 +129,48 @@ class MyEPuck(pyenki.EPuck):
 		## Extract gray values
 		for pixel in range(len(camera_obj)):
 			#~ print(f"Camera ToGray pixel #{pixel + 1}: {camera_obj[pixel].toGray()}")
-			camera_inputs.append(camera_obj[pixel].toGray())
+			#~ camera_inputs.append(camera_obj[pixel].toGray())
+			camera_inputs.append(round(camera_obj[pixel].toGray(), 2))
 
 		#~ print(f"Camera values: {camera_inputs}")
+		#~ print(f"Camera first 6 values: {camera_inputs[:6]}")
+		#~ camera_inputs_factored = [round(item*0.01, 4) for item in camera_inputs]
 
 		## Get robot's raw proximity sensor values
 		ir_sensors = self.proximitySensorValues
 		#~ print(f"IR sensor values: {type(ir_sensors)}")
 		## Scale sensor values down by factor of 1000
 		ir_sensor_inputs = (0.001 * np.array(ir_sensors)).tolist()
+		#~ print(f"IR sensor values factored: {ir_sensor_inputs}")
 
 		## Concatenate the camera and IR inputs
+		#~ final_sensor_inputs = camera_inputs[:6] + ir_sensor_inputs
 		final_sensor_inputs = camera_inputs + ir_sensor_inputs
 		array_final_sensor_inputs = np.array(final_sensor_inputs)
-		#~ print(f"LIST Final inputs size: {final_sensor_inputs}") #68!
+		#~ print(f"LIST Final inputs size: {final_sensor_inputs}") #68! - Testing with 14 inputs
 		#~ print(f"ARRAY Final inputs size: {array_final_sensor_inputs}") #68!
-		## Apply input weights
+
+		## Apply input weights - method 1
+		#~ CTRNN_inputs_weights = np.dot(self.input_weights, array_final_sensor_inputs).tolist()
+		#~ print(f"Dot product value: {CTRNN_inputs_weights}")
+
+		## Apply input weights - method 2
 		CTRNN_inputs_weights = self.input_weights.dot(array_final_sensor_inputs).tolist()
-		#~ print(f"CTRNN Inputs dot weights: {len(CTRNN_inputs_weights)}")
-		#~ print(f"CTRNN Inputs dot weights values: {CTRNN_inputs_weights}")
+		#~ print(f"Dot product value: {CTRNN_inputs_weights}")
 
 		## Pad inputs with zeros: first 2 neurons are motor neurons, last 2 neurons are interneurons, 
 		## which do no connect directly to the outside of the CTRNN
 		CTRNN_final_inputs_weights = np.array([0, 0] + CTRNN_inputs_weights + [0, 0]) 
-		#~ print(f"CTRNN FINAL Input values: {CTRNN_final_inputs_weights}")
+		#~ CTRNN_final_inputs_weights = np.array([1, 1] + CTRNN_inputs_weights + [1, 1])
+		#~ CTRNN_final_inputs_reduced = [item*0.1 for item in CTRNN_final_inputs_weights]
+		#~ print(f"CTRNN FINAL Input values: {CTRNN_final_inputs_reduced}")
+		#~ print(f"CTRNN FINAL Input shape: {CTRNN_final_inputs_weights.shape}")
 
 		## Step the CTRNN
-		self.network.euler_step(some_input)
+		self.network.euler_step(CTRNN_final_inputs_weights)
 		## Motor commands are taken from neurons 0 and 1
 		commands = self.network.outputs[:2].tolist()
-		
+
 		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
 		self.leftSpeed = scale * commands[0]
 		self.rightSpeed = scale * commands[1]
@@ -232,7 +253,10 @@ def run_once(genome, print_stuff=False, view=False):
 		e = MyEPuck(genome, net_size, step_size)
 		pucks[n] = e
 		e.pos = (n * 50, n * 60)
+		e.angle = 0
+		## e.angle
 		#~ e.pos = (n + 1 * 50, n + 1 * 60)
+		#~ e.pos = (n + 1 * 100, n + 1 * 80)
 		#~ e.pos = (n * 100, n * 40)
 		#~ e.pos = (n * 0, n * 1)
 		#~ e.pos = (n * 130, n * 90)
@@ -240,14 +264,15 @@ def run_once(genome, print_stuff=False, view=False):
 		w.addObject(e)
 
 	## Average distance between the robots
-	total_dis_between_robots = []
+	#~ total_dis_between_robots = []
+	total_dis_between_robots = [1]
 
 	# simulate
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(100): ##1200
-			w.step(0.1, 3)
+		for i in range(1000): ##1200
+			w.step(step_size, 3)
 			#~ c_xs.append(c.pos[0])
 			#~ c_ys.append(c.pos[1])
 			if print_stuff:
@@ -390,6 +415,7 @@ def run_optimization(population):
 			#~ str_avg_normalized_dist_between_robots = str(avg_normalized_dist_between_robots)
 
 			final_bd = (avg_normalized_dist_between_robots, normalized_dist_cylinder)
+			#~ print(f"Final behaviour: {final_bd}")
 
 			## Here add the behaviour to the archive or not.
 			## Add the first behaviour to the archive
@@ -510,7 +536,7 @@ def main():
 	
 	## Create initial population
 	population = create_random_parameters_set(POPULATION_SIZE, GENOTYPE_SIZE, weights_bias_range)
-	#~ print(f"Initial population: {population}")
+	#~ print(f"Initial population: {population[0]}")
 	
 	## Run optimization
 	most_novel_genome, least_novel_genome, average_novelty_over_time, novelty_archive = run_optimization(population)
@@ -536,7 +562,7 @@ if __name__ == '__main__':
 
 #### Test Candidate ####
 ## Path to save robot behaviour
-#~ folder_json_path = './2_epuck_robots_behaviour_6'
+#~ folder_json_path = './2_epuck_CTRNN_robots_behaviour_2'
 ## Load Json data from file
 #~ def load_json(folder_name, file_name):
 	#~ path = f"{folder_name}/{file_name}"
@@ -547,13 +573,12 @@ if __name__ == '__main__':
 #~ def access_data(data, key):
 	#~ return data.get(key, "Key not found")
 	
-#~ folder_name = './2_epuck_robots_behaviour_6'
+#~ folder_name = './results/2_epuck_CTRNN_robots_behaviour_2'
 #~ file_name = 'final_novelty_archive.json'
 
 #~ json_data = load_json(folder_name, file_name)
-#~ desired_behaviour = 348
+#~ desired_behaviour = 30
 #~ for candidate in json_data:
-	#~ print(f"{json_data[candidate]}")
 	#~ if candidate['genome_id'] == desired_behaviour:
 		#~ tested_genome = candidate['genome']
 		#~ break
@@ -561,5 +586,6 @@ if __name__ == '__main__':
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(tested_genome, print_stuff=True, view=True)
 
 #~ params_test = [0] * 712
+#~ params_test = [0] * 280
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
 #~ print(f"Max distance between robots: {total_dis_between_robots}")
