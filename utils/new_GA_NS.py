@@ -7,6 +7,9 @@ FIXED_BIAS = False
 BOUNDS = [0.01, 0.99]
 ELITE_PART = 0.4
 
+## For testing
+random.seed(27)
+
 def create_random_parameters_set(pop_size, geno_size, weights_bias_range):
     """
         Create random parameters set.
@@ -24,7 +27,8 @@ def create_random_parameters_set(pop_size, geno_size, weights_bias_range):
                 genotype[136] = 5
                 genotype[137] = 5
             else:
-                genotype[ind] = random.choice(weights_bias_range)
+                #~ genotype[ind] = random.choice(weights_bias_range)
+                genotype[ind] = round(random.choice(weights_bias_range), 2)
         population[pop_ind] = genotype
     return population
 

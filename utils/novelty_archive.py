@@ -59,6 +59,16 @@ class NoveltySearchArchive:
         matcher = SequenceMatcher(None, str1, str2)
 
         return 1 - matcher.ratio()
+        
+    def euclidean_distance(self, val_1, val_2):
+        """
+            Calculate the Euclidean distance between two float values.
+            :param val_1: First float value
+            :param val_2: Second float value
+            :return distance: Euclidean distance
+        """
+        
+        return abs(val_1 - val_2)
 
     def compute_novelty(self, data):
         """
@@ -70,23 +80,49 @@ class NoveltySearchArchive:
         ## Transform data to list
         #~ data = list(data)
         ## Sort the data to keep the order
-        data_sorted = sorted(data)
-        data = str(data_sorted)
+        #~ data_sorted = sorted(data)
+        #~ data = str(data_sorted)
+        
+        ## For Euclidean distance, the data is now a tuple. This is when
+        ## using average distance between the robots during the simulation
+        ## and the euclidean distance between the cylinder and the desired position
+        ## Both value are normalized.
+        
 
         if len(self.archive) > 0:
             for e in self.archive:
                 ## Transform set to list to use levenshtein distance
                 ## Sort the behavior to keep the order
-                behavior_sorted = sorted(e['data'])
-                behavior = str(behavior_sorted)
+                #~ behavior_sorted = sorted(e['data'])
+                #~ behavior = str(behavior_sorted)
+                
                 #~ print(f"Data: {data}")
                 #~ print(f"Behaviour: {behavior}")
                 
                 ## Using Levenshtein distance
-                diffs.append(leven_distance(data, behavior))
+                #~ diffs.append(leven_distance(data, behavior))
                 
                 ## Using sequence matcher
                 #~ diffs.append(self.sequence_matcher_distance(data, behavior))
+
+                ## Using Euclidean distance for float values ##
+                ## The first value of the tuple is the avg distance between the robots
+                ## The second value of the tuple is the Euclidean distance between the cylinder
+                ## and the desired final position
+                
+                #~ print(f"Novelty archive: {e}")
+                
+                robots_behavior = e['data'][0]
+                #~ print(f"Robots behavior: {robots_behavior}")
+                cylinder_behavior = e['data'][1]
+                #~ print(f"Cylinder behavior: {cylinder_behavior}")
+
+                robots_diff = self.euclidean_distance(data[0], robots_behavior)
+                cylinder_diff = self.euclidean_distance(data[1], cylinder_behavior)
+                
+                avg_diff = (robots_diff + cylinder_diff) / len(e['data'])
+                #~ print(f"Average distance: {avg_diff}")
+                diffs.append(avg_diff)
                 
             novelty = sum(diffs)
 
