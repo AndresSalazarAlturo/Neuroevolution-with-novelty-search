@@ -29,22 +29,23 @@ rectangle_small_horizontal_pos = [100, 55]
 num_robots = 2
 
 ## GA parameters
-num_gens = 10
+num_gens = 100
 ## 200 in Gomes - pop size
-POPULATION_SIZE = 40
+POPULATION_SIZE = 70
 GENOTYPE_SIZE = 712
 ## Weights, bias bounds
-#~ weights_bias_range = np.arange(-5, 5, 0.5)
+#~ weights_bias_range = np.arange(-1, 1, 0.01)
 weights_bias_range = np.arange(0.01, 0.99, 0.01)
 
 ## CTRNN related
 net_size = 12
-step_size = 0.001
+step_size = 0.001	## Try to reduce the step size
 ## This are the number of values from the camera and IR sensors
 sensor_inputs = 68
 
 ## Archive size
-archive_size = 10
+archive_size = 40
+dist_metric = 'euclidean_levenshtein'
 
 ## Multiprocessing - Processors used
 #~ pool = Pool(3)
@@ -60,24 +61,18 @@ class MyEPuck(pyenki.EPuck):
 		super(MyEPuck, self).__init__()
 		## Convert list to array
 		genome = np.array(genome)
-		
-		#~ print(f"Genome: {genome}")
-		#~ print(f"Genome length: {len(genome)}")
 
-		#~ self.setLedRing(False)
+		#~ self.setLedRing(True)
 
 		## Save robot info
 		self.xs = []
 		self.ys = []
 
 		## CTRNN parameters
-		#~ net_size = 12 # number of neurons in CTRNN
-		#~ step_size = 0.1 # quite large - a smaller value might be more stable
 		# set up CTRNN
 		self.network = CTRNN(size=net_size, step_size=step_size)
 		# CTRNN parameters
 		self.network.taus = 1 + (5 * genome[0:net_size])
-		#~ print(f"Not normalized taus: {normalized_genome[0:net_size]}")
 		#~ print(f"Taus values: {self.network.taus}")
 		self.network.biases = 4 * (genome[net_size:2*net_size] - 0.5)	
 		#~ print(f"Biases values: {self.network.biases}")
@@ -88,18 +83,13 @@ class MyEPuck(pyenki.EPuck):
 		genome_input_weights = 40 * (genome[net_size*2+net_size**2:] - 0.5)
 		#~ print(f"Input weights values: {genome_input_weights}")
 		#~ print(f"Input weights length: {len(genome_input_weights)}")
+
 		## I subtract 4 to net_size as 4 of the 12 neurons will be set to zero
 		## Thus, is not necessary to have a big genome. (I think this is correct, ask Chris!!!)
 		#~ self.input_weights = genome_input_weights.reshape(net_size - 4, sensor_inputs)
 		self.input_weights = genome_input_weights.reshape(net_size - 4, sensor_inputs)
 		#~ print(f"Input weights values: {self.input_weights}")
 		#~ print(f"Input weights values: {len(self.input_weights)}")
-		
-		## If using just the IR sensors
-		#~ self.input_weights = 40 * (genome[net_size*2+net_size**2:] - 0.5)
-		#~ print(f"Input weigths INIT: {self.input_weights}")
-		# force initial states to be all zero - by default, they are randomised
-		#~ self.network.states = self.network.states * 0
 
 	# the EPuck's controller. You can't add args to this method, so any parameters you require must be set in init or other code
 	def controlStep(self, dt):
@@ -133,8 +123,6 @@ class MyEPuck(pyenki.EPuck):
 			camera_inputs.append(round(camera_obj[pixel].toGray(), 2))
 
 		#~ print(f"Camera values: {camera_inputs}")
-		#~ print(f"Camera first 6 values: {camera_inputs[:6]}")
-		#~ camera_inputs_factored = [round(item*0.01, 4) for item in camera_inputs]
 
 		## Get robot's raw proximity sensor values
 		ir_sensors = self.proximitySensorValues
@@ -144,10 +132,9 @@ class MyEPuck(pyenki.EPuck):
 		#~ print(f"IR sensor values factored: {ir_sensor_inputs}")
 
 		## Concatenate the camera and IR inputs
-		#~ final_sensor_inputs = camera_inputs[:6] + ir_sensor_inputs
 		final_sensor_inputs = camera_inputs + ir_sensor_inputs
 		array_final_sensor_inputs = np.array(final_sensor_inputs)
-		#~ print(f"LIST Final inputs size: {final_sensor_inputs}") #68! - Testing with 14 inputs
+		#~ print(f"LIST Final inputs size: {len(final_sensor_inputs)}") #68! - Testing with 14 inputs
 		#~ print(f"ARRAY Final inputs size: {array_final_sensor_inputs}") #68!
 
 		## Apply input weights - method 1
@@ -161,17 +148,20 @@ class MyEPuck(pyenki.EPuck):
 		## Pad inputs with zeros: first 2 neurons are motor neurons, last 2 neurons are interneurons, 
 		## which do no connect directly to the outside of the CTRNN
 		CTRNN_final_inputs_weights = np.array([0, 0] + CTRNN_inputs_weights + [0, 0]) 
-		#~ CTRNN_final_inputs_weights = np.array([1, 1] + CTRNN_inputs_weights + [1, 1])
-		#~ CTRNN_final_inputs_reduced = [item*0.1 for item in CTRNN_final_inputs_weights]
-		#~ print(f"CTRNN FINAL Input values: {CTRNN_final_inputs_reduced}")
+		#~ print(f"CTRNN FINAL Input values: {CTRNN_final_inputs_weights}")
 		#~ print(f"CTRNN FINAL Input shape: {CTRNN_final_inputs_weights.shape}")
 
 		## Step the CTRNN
 		self.network.euler_step(CTRNN_final_inputs_weights)
+		
+		## For loop to run the euler function 10 times before continuing with the simulation
+		#~ for i in range(10):
+			#~ self.network.euler_step(CTRNN_final_inputs_weights)
+		
 		## Motor commands are taken from neurons 0 and 1
 		commands = self.network.outputs[:2].tolist()
 
-		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
+		scale = 30 # amplification for motor speed commands. 10 may actually be quite small for this robot
 		self.leftSpeed = scale * commands[0]
 		self.rightSpeed = scale * commands[1]
 
@@ -210,7 +200,7 @@ def run_once(genome, print_stuff=False, view=False):
 	w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
 
 	# create a rectangular object and add to world - Big horizontal one
-	r_1 = pyenki.RectangularObject(130, 10, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	r_1 = pyenki.RectangularObject(130, 10, 5, 10000000, pyenki.Color(0, 0, 1, 1)) # l1, l2, height, mass colour
 	r_1.pos = (rectangle_big_horizontal_pos[0], rectangle_big_horizontal_pos[1])
 	## 0.785
 	r_1.angle = 0
@@ -218,7 +208,7 @@ def run_once(genome, print_stuff=False, view=False):
 	w.addObject(r_1)
 	
 	# create a rectangular object and add to world - Vertical one
-	r_2 = pyenki.RectangularObject(10, 80, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	r_2 = pyenki.RectangularObject(10, 80, 5, 10000000, pyenki.Color(0, 1, 0, 1)) # l1, l2, height, mass colour
 	r_2.pos = (rectangle_vertical_pos[0], rectangle_vertical_pos[1])
 	## 0.785
 	r_2.angle = 0
@@ -226,14 +216,14 @@ def run_once(genome, print_stuff=False, view=False):
 	w.addObject(r_2)
 	
 	# create a rectangular object and add to world - Small horizontal one
-	r_3 = pyenki.RectangularObject(10, 50, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	r_3 = pyenki.RectangularObject(10, 50, 5, 10000000, pyenki.Color(1, 1, 0, 1)) # l1, l2, height, mass colour
 	r_3.pos = (rectangle_small_horizontal_pos[0], rectangle_small_horizontal_pos[1])
 	## 0.785
 	r_3.angle = 1.6
 	r_3.collisionElasticity = 0
 	w.addObject(r_3)
 
-	# create a cylindrical object and add to world
+	# create a cylindrical object and add to world - 30.000
 	c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
 	#~ c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(0, 0, 0, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
 	c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
@@ -247,32 +237,36 @@ def run_once(genome, print_stuff=False, view=False):
 	## set up robots
 	#~ num_robots = 3
 	pucks = [0] * num_robots
+	
+	##Epucks pos
+	#~ epucks_pos = [(100, 70), (150, 100)]
 
 	for n in range(num_robots):
 		## Create an instance of e-puck class
 		e = MyEPuck(genome, net_size, step_size)
 		pucks[n] = e
-		e.pos = (n * 50, n * 60)
-		e.angle = 0
-		## e.angle
+		## Test
+		#~ e.pos = (epucks_pos[n][0], epucks_pos[n][1])
+		## My default position
+		#~ e.pos = (n * 50, n * 60)
+		e.angle = 1
+		e.pos = (n * 200, n * 10)
 		#~ e.pos = (n + 1 * 50, n + 1 * 60)
-		#~ e.pos = (n + 1 * 100, n + 1 * 80)
-		#~ e.pos = (n * 100, n * 40)
+		#~ e.pos = (n + 1 * 100, n + 1 * 40)
 		#~ e.pos = (n * 0, n * 1)
 		#~ e.pos = (n * 130, n * 90)
 		e.collisionElasticity = 0
 		w.addObject(e)
 
 	## Average distance between the robots
-	#~ total_dis_between_robots = []
-	total_dis_between_robots = [1]
+	total_dis_between_robots = []
 
 	# simulate
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
 		for i in range(1000): ##1200
-			w.step(step_size, 3)
+			w.step(0.1, 3)
 			#~ c_xs.append(c.pos[0])
 			#~ c_ys.append(c.pos[1])
 			if print_stuff:
@@ -294,16 +288,7 @@ def run_once(genome, print_stuff=False, view=False):
 				## Calculate the average distance between the bots during the simulation
 				## Calculate the distance every 200 cycles
 				if i % 50 == 0:
-					## Calculate the average distance between the three robots
-					## Distance between robot 1 and robot 2
-					#~ robot_1_and_robot_2_distance = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
-					## Distance between robot 1 and robot 3
-					#~ robot_1_and_robot_3_distance = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[2].xs[-1], pucks[2].ys[-1])
-					## Distance between robot 2 and robot 3
-					#~ robot_2_and_robot_3_distance = euclidean_distance(pucks[1].xs[-1], pucks[1].ys[-1], pucks[2].xs[-1], pucks[2].ys[-1])
-					
-					#~ avg_distance = (robot_1_and_robot_2_distance + robot_1_and_robot_3_distance + robot_2_and_robot_3_distance) / num_robots
-					#~ avg_distance = robot_1_and_robot_2_distance / num_robots
+					## Calculate the average distance between the two robots
 					
 					robot_1_and_robot_2_distance = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
 					## List with the distances between the robots during the simulation
@@ -330,7 +315,7 @@ def run_optimization(population):
 	genotype_id = 0
 	
 	## Create novelty search archive instance
-	archive = NoveltySearchArchive(archive_size, leven_distance)
+	archive = NoveltySearchArchive(archive_size, dist_metric)
 	
 	## Run GA for a fixed number of generations
 	for gen in range(num_gens):
@@ -369,9 +354,9 @@ def run_optimization(population):
 			#~ final_bd = {str_robot_1_bd, str_robot_2_db}
 			
 			## Get cylinder behaviour
-			#~ cylinder_bd = grid.set_of_visited_rects(c_xs, c_ys)
-			#~ cylinder_bd_sorted = sorted(cylinder_bd)
-			#~ str_cylinder_bd = str(cylinder_bd_sorted)
+			cylinder_bd = grid.set_of_visited_rects(c_xs, c_ys)
+			cylinder_bd_sorted = sorted(cylinder_bd)
+			list_cylinder_bd = str(cylinder_bd_sorted)
 			
 			## Final cylinder position
 			cylinder_final_pos = (c_xs[-1], c_ys[-1])
@@ -382,11 +367,11 @@ def run_optimization(population):
 											cylinder_final_pos[1])
 
 			## Minimum and maximum distance of the cylinder to the desired position
-			min_cylinder_value = 0
-			max_cylinder_value = 233
+			#~ min_cylinder_value = 0
+			#~ max_cylinder_value = 233
 
 			## Normalize the distance between cylinder's final pos and cylinder desired pos
-			normalized_dist_cylinder = (fitness - min_cylinder_value) / (max_cylinder_value - min_cylinder_value)
+			#~ normalized_dist_cylinder = (fitness - min_cylinder_value) / (max_cylinder_value - min_cylinder_value)
 
 			## Get cylinder behaviour as final position (x,y)
 			#~ cylinder_final_pos = {c_xs[-1], c_ys[-1]}
@@ -409,12 +394,7 @@ def run_optimization(population):
 			else:
 				normalized_dist_between_robots = 0
 
-			## Sort the normalized robot's distance value to keep the order when
-			## transforming to string
-			#~ avg_normalized_dist_between_robots_sorted = sorted(avg_normalized_dist_between_robots)
-			#~ str_avg_normalized_dist_between_robots = str(avg_normalized_dist_between_robots)
-
-			final_bd = (avg_normalized_dist_between_robots, normalized_dist_cylinder)
+			final_bd = (avg_normalized_dist_between_robots, list_cylinder_bd)
 			#~ print(f"Final behaviour: {final_bd}")
 
 			## Here add the behaviour to the archive or not.
@@ -577,7 +557,7 @@ if __name__ == '__main__':
 #~ file_name = 'final_novelty_archive.json'
 
 #~ json_data = load_json(folder_name, file_name)
-#~ desired_behaviour = 30
+#~ desired_behaviour = 3
 #~ for candidate in json_data:
 	#~ if candidate['genome_id'] == desired_behaviour:
 		#~ tested_genome = candidate['genome']
@@ -585,7 +565,7 @@ if __name__ == '__main__':
 #~ print(f"{tested_genome}")
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(tested_genome, print_stuff=True, view=True)
 
-#~ params_test = [0] * 712
+#~ params_test = [0.99] * 712
 #~ params_test = [0] * 280
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
 #~ print(f"Max distance between robots: {total_dis_between_robots}")
