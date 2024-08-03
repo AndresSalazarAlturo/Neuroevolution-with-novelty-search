@@ -18,20 +18,28 @@ from CTRNN import CTRNN
 ## 80, 50
 ## 100, 140
 ## Desire final position for cylinder = 170, 175; 180, 180
+
+## Easier map set up
 desired_cylinder_pos = [180, 180]
-initial_cylinder_pos = [140, 40]
-#~ initial_cylinder_pos = [40, 10]
-rectangle_big_horizontal_pos = [130, 135]
-rectangle_vertical_pos = [70, 90]
-rectangle_small_horizontal_pos = [100, 55]
+initial_cylinder_pos = [100, 40]
+#~ initial_cylinder_pos = [30, 30]
+rectangle_big_horizontal_pos = [180, 130]
+rectangle_vertical_pos = [30, 130]
+
+## Hard map set up
+#~ desired_cylinder_pos = [180, 180]
+#~ initial_cylinder_pos = [140, 40]
+#~ rectangle_big_horizontal_pos = [130, 135]
+#~ rectangle_vertical_pos = [70, 90]
+#~ rectangle_small_horizontal_pos = [100, 55]
 
 ## Number of robots
 num_robots = 2
 
 ## GA parameters
-num_gens = 100
+num_gens = 50
 ## 200 in Gomes - pop size
-POPULATION_SIZE = 70
+POPULATION_SIZE = 40
 GENOTYPE_SIZE = 712
 ## Weights, bias bounds
 #~ weights_bias_range = np.arange(-1, 1, 0.01)
@@ -44,7 +52,7 @@ step_size = 0.001	## Try to reduce the step size
 sensor_inputs = 68
 
 ## Archive size
-archive_size = 40
+archive_size = 30
 dist_metric = 'euclidean_levenshtein'
 
 ## Multiprocessing - Processors used
@@ -61,6 +69,8 @@ class MyEPuck(pyenki.EPuck):
 		super(MyEPuck, self).__init__()
 		## Convert list to array
 		genome = np.array(genome)
+		
+		#~ print(f"Genome: {genome}")
 
 		#~ self.setLedRing(True)
 
@@ -72,15 +82,15 @@ class MyEPuck(pyenki.EPuck):
 		# set up CTRNN
 		self.network = CTRNN(size=net_size, step_size=step_size)
 		# CTRNN parameters
-		self.network.taus = 1 + (5 * genome[0:net_size])
+		self.network.taus = 1 + (3 * genome[0:net_size])
 		#~ print(f"Taus values: {self.network.taus}")
-		self.network.biases = 4 * (genome[net_size:2*net_size] - 0.5)	
+		self.network.biases = 9 * (genome[net_size:2*net_size] - 0.5)	
 		#~ print(f"Biases values: {self.network.biases}")
-		self.network.weights = 4 * (np.reshape(genome[net_size*2:net_size*2+net_size**2], (net_size, net_size)) - 0.5)
+		self.network.weights = 9 * (np.reshape(genome[net_size*2:net_size*2+net_size**2], (net_size, net_size)) - 0.5)
 		#~ print(f"Network weights values: {self.network.weights}")
 		
 		## Extract the weights from genome
-		genome_input_weights = 40 * (genome[net_size*2+net_size**2:] - 0.5)
+		genome_input_weights = 20 * (genome[net_size*2+net_size**2:] - 0.5)
 		#~ print(f"Input weights values: {genome_input_weights}")
 		#~ print(f"Input weights length: {len(genome_input_weights)}")
 
@@ -115,12 +125,54 @@ class MyEPuck(pyenki.EPuck):
 		#~ print("------------------------------------------------------------")
 		#~ help(camera_obj)
 
+		## Loop for euler function
+		#~ for i in range(10):
+			
+			#~ camera_inputs = []
+			#~ ir_sensors = []
+			#~ ## Extract gray values
+			#~ for pixel in range(len(camera_obj)):
+				#~ print(f"Camera ToGray pixel #{pixel + 1}: {camera_obj[pixel].toGray()}")
+				#~ camera_inputs.append(camera_obj[pixel].toGray())
+
+			#~ print(f"Camera values: {camera_inputs}")
+
+			#~ ## Get robot's raw proximity sensor values
+			#~ ir_sensors = self.proximitySensorValues
+			#~ print(f"IR sensor values: {type(ir_sensors)}")
+			#~ ## Scale sensor values down by factor of 1000
+			#~ ir_sensor_inputs = (0.001 * np.array(ir_sensors)).tolist()
+			#~ print(f"IR sensor values factored: {ir_sensor_inputs}")
+
+			#~ ## Concatenate the camera and IR inputs
+			#~ final_sensor_inputs = camera_inputs + ir_sensor_inputs
+			#~ array_final_sensor_inputs = np.array(final_sensor_inputs)
+			#~ print(f"LIST Final inputs size: {final_sensor_inputs}") #68! - Testing with 14 inputs
+			#~ print(f"ARRAY Final inputs size: {array_final_sensor_inputs}") #68!
+
+			#~ ## Apply input weights - method 1
+			#~ CTRNN_inputs_weights = np.dot(self.input_weights, array_final_sensor_inputs).tolist()
+			#~ print(f"Dot product value: {CTRNN_inputs_weights}")
+
+			#~ ## Apply input weights - method 2
+			#~ CTRNN_inputs_weights = self.input_weights.dot(array_final_sensor_inputs).tolist()
+			#~ print(f"Dot product value: {CTRNN_inputs_weights}")
+
+			#~ ## Pad inputs with zeros: first 2 neurons are motor neurons, last 2 neurons are interneurons, 
+			#~ ## which do no connect directly to the outside of the CTRNN
+			#~ CTRNN_final_inputs_weights = np.array([0, 0] + CTRNN_inputs_weights + [0, 0]) 
+			#~ print(f"CTRNN FINAL Input values: {CTRNN_final_inputs_weights}")
+			#~ print(f"CTRNN FINAL Input shape: {CTRNN_final_inputs_weights.shape}")
+
+			#~ ## Step the CTRNN
+			#~ self.network.euler_step(CTRNN_final_inputs_weights)
+		## End of loop for euler function
+
 		camera_inputs = []
 		## Extract gray values
 		for pixel in range(len(camera_obj)):
 			#~ print(f"Camera ToGray pixel #{pixel + 1}: {camera_obj[pixel].toGray()}")
-			#~ camera_inputs.append(camera_obj[pixel].toGray())
-			camera_inputs.append(round(camera_obj[pixel].toGray(), 2))
+			camera_inputs.append(camera_obj[pixel].toGray())
 
 		#~ print(f"Camera values: {camera_inputs}")
 
@@ -134,7 +186,7 @@ class MyEPuck(pyenki.EPuck):
 		## Concatenate the camera and IR inputs
 		final_sensor_inputs = camera_inputs + ir_sensor_inputs
 		array_final_sensor_inputs = np.array(final_sensor_inputs)
-		#~ print(f"LIST Final inputs size: {len(final_sensor_inputs)}") #68! - Testing with 14 inputs
+		#~ print(f"LIST Final inputs size: {final_sensor_inputs}") #68! - Testing with 14 inputs
 		#~ print(f"ARRAY Final inputs size: {array_final_sensor_inputs}") #68!
 
 		## Apply input weights - method 1
@@ -154,14 +206,10 @@ class MyEPuck(pyenki.EPuck):
 		## Step the CTRNN
 		self.network.euler_step(CTRNN_final_inputs_weights)
 		
-		## For loop to run the euler function 10 times before continuing with the simulation
-		#~ for i in range(10):
-			#~ self.network.euler_step(CTRNN_final_inputs_weights)
-		
 		## Motor commands are taken from neurons 0 and 1
 		commands = self.network.outputs[:2].tolist()
 
-		scale = 30 # amplification for motor speed commands. 10 may actually be quite small for this robot
+		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
 		self.leftSpeed = scale * commands[0]
 		self.rightSpeed = scale * commands[1]
 
@@ -199,8 +247,46 @@ def run_once(genome, print_stuff=False, view=False):
 	# create rectangular world - note that coordinate origin is corner of arena
 	w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
 
+	##############################
+	######### Hard world #########
+	##############################
+
+	#~ # create a rectangular object and add to world - Big horizontal one
+	#~ r_1 = pyenki.RectangularObject(130, 10, 5, 10000000, pyenki.Color(0, 0, 1, 1)) # l1, l2, height, mass colour
+	#~ r_1.pos = (rectangle_big_horizontal_pos[0], rectangle_big_horizontal_pos[1])
+	#~ ## 0.785
+	#~ r_1.angle = 0
+	#~ r_1.collisionElasticity = 0
+	#~ w.addObject(r_1)
+	
+	#~ # create a rectangular object and add to world - Vertical one
+	#~ r_2 = pyenki.RectangularObject(10, 80, 5, 10000000, pyenki.Color(0, 1, 0, 1)) # l1, l2, height, mass colour
+	#~ r_2.pos = (rectangle_vertical_pos[0], rectangle_vertical_pos[1])
+	#~ ## 0.785
+	#~ r_2.angle = 0
+	#~ r_2.collisionElasticity = 0
+	#~ w.addObject(r_2)
+	
+	#~ # create a rectangular object and add to world - Small horizontal one
+	#~ r_3 = pyenki.RectangularObject(10, 50, 5, 10000000, pyenki.Color(1, 1, 0, 1)) # l1, l2, height, mass colour
+	#~ r_3.pos = (rectangle_small_horizontal_pos[0], rectangle_small_horizontal_pos[1])
+	#~ ## 0.785
+	#~ r_3.angle = 1.6
+	#~ r_3.collisionElasticity = 0
+	#~ w.addObject(r_3)
+
+	#~ # create a cylindrical object and add to world - 30.000
+	#~ c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
+	#~ c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
+	#~ c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
+	#~ w.addObject(c) # add cylinder to the world
+	
+	##############################
+	######## Easier world ########
+	##############################
+	
 	# create a rectangular object and add to world - Big horizontal one
-	r_1 = pyenki.RectangularObject(130, 10, 5, 10000000, pyenki.Color(0, 0, 1, 1)) # l1, l2, height, mass colour
+	r_1 = pyenki.RectangularObject(80, 10, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
 	r_1.pos = (rectangle_big_horizontal_pos[0], rectangle_big_horizontal_pos[1])
 	## 0.785
 	r_1.angle = 0
@@ -208,24 +294,15 @@ def run_once(genome, print_stuff=False, view=False):
 	w.addObject(r_1)
 	
 	# create a rectangular object and add to world - Vertical one
-	r_2 = pyenki.RectangularObject(10, 80, 5, 10000000, pyenki.Color(0, 1, 0, 1)) # l1, l2, height, mass colour
+	r_2 = pyenki.RectangularObject(10, 70, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
 	r_2.pos = (rectangle_vertical_pos[0], rectangle_vertical_pos[1])
 	## 0.785
-	r_2.angle = 0
+	r_2.angle = 1.6
 	r_2.collisionElasticity = 0
 	w.addObject(r_2)
 	
-	# create a rectangular object and add to world - Small horizontal one
-	r_3 = pyenki.RectangularObject(10, 50, 5, 10000000, pyenki.Color(1, 1, 0, 1)) # l1, l2, height, mass colour
-	r_3.pos = (rectangle_small_horizontal_pos[0], rectangle_small_horizontal_pos[1])
-	## 0.785
-	r_3.angle = 1.6
-	r_3.collisionElasticity = 0
-	w.addObject(r_3)
-
 	# create a cylindrical object and add to world - 30.000
-	c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
-	#~ c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(0, 0, 0, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
+	c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
 	c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
 	w.addObject(c) # add cylinder to the world
@@ -239,18 +316,18 @@ def run_once(genome, print_stuff=False, view=False):
 	pucks = [0] * num_robots
 	
 	##Epucks pos
-	#~ epucks_pos = [(100, 70), (150, 100)]
+	epucks_pos = [(40, 10), (180, 10)]
 
 	for n in range(num_robots):
 		## Create an instance of e-puck class
 		e = MyEPuck(genome, net_size, step_size)
 		pucks[n] = e
 		## Test
-		#~ e.pos = (epucks_pos[n][0], epucks_pos[n][1])
+		e.pos = (epucks_pos[n][0], epucks_pos[n][1])
 		## My default position
 		#~ e.pos = (n * 50, n * 60)
-		e.angle = 1
-		e.pos = (n * 200, n * 10)
+		e.angle = 1.5
+		#~ e.pos = (n * 200, n * 10)
 		#~ e.pos = (n + 1 * 50, n + 1 * 60)
 		#~ e.pos = (n + 1 * 100, n + 1 * 40)
 		#~ e.pos = (n * 0, n * 1)
@@ -565,7 +642,7 @@ if __name__ == '__main__':
 #~ print(f"{tested_genome}")
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(tested_genome, print_stuff=True, view=True)
 
-#~ params_test = [0.99] * 712
 #~ params_test = [0] * 280
+#~ params_test = [0.99] * 712
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
 #~ print(f"Max distance between robots: {total_dis_between_robots}")
