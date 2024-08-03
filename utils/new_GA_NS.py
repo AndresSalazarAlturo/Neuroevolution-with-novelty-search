@@ -5,10 +5,12 @@ import numpy as np
 MUTATION_PROBABILITY = 0.1
 FIXED_BIAS = False
 BOUNDS = [0.01, 0.99]
+#~ BOUNDS = [-1, 1]
 ELITE_PART = 0.4
+range_factor = 0.3
 
 ## For testing
-random.seed(27)
+#~ random.seed(27)
 
 def create_random_parameters_set(pop_size, geno_size, weights_bias_range):
     """
@@ -27,8 +29,8 @@ def create_random_parameters_set(pop_size, geno_size, weights_bias_range):
                 genotype[136] = 5
                 genotype[137] = 5
             else:
-                #~ genotype[ind] = random.choice(weights_bias_range)
-                genotype[ind] = round(random.choice(weights_bias_range), 2)
+                genotype[ind] = random.choice(weights_bias_range)
+                #~ genotype[ind] = round(random.choice(weights_bias_range), 2)
         population[pop_ind] = genotype
     return population
 
@@ -236,10 +238,10 @@ def mutate(child, n_genes, FIXED_BIAS):
                 if gene_no == 136 or gene_no == 137:
                     child[gene_no] = child[gene_no]
                 else:
-                    child[gene_no] = random_number_close_range(child[gene_no], 1, BOUNDS)
+                    child[gene_no] = random_number_close_range(child[gene_no], range_factor, BOUNDS)
     else:
         for gene_no in range(n_genes):
             if np.random.rand() < MUTATION_PROBABILITY:
-                child[gene_no] = random_number_close_range(child[gene_no], 1, BOUNDS)
+                child[gene_no] = random_number_close_range(child[gene_no], range_factor, BOUNDS)
 
     return child

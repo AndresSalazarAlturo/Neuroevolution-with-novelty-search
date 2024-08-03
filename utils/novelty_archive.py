@@ -87,7 +87,6 @@ class NoveltySearchArchive:
         ## using average distance between the robots during the simulation
         ## and the euclidean distance between the cylinder and the desired position
         ## Both value are normalized.
-        
 
         if len(self.archive) > 0:
             for e in self.archive:
@@ -112,17 +111,34 @@ class NoveltySearchArchive:
                 
                 #~ print(f"Novelty archive: {e}")
                 
-                robots_behavior = e['data'][0]
-                #~ print(f"Robots behavior: {robots_behavior}")
-                cylinder_behavior = e['data'][1]
-                #~ print(f"Cylinder behavior: {cylinder_behavior}")
-
-                robots_diff = self.euclidean_distance(data[0], robots_behavior)
-                cylinder_diff = self.euclidean_distance(data[1], cylinder_behavior)
+                if self.diff_function == 'euclidean_only':
                 
-                avg_diff = (robots_diff + cylinder_diff) / len(e['data'])
-                #~ print(f"Average distance: {avg_diff}")
-                diffs.append(avg_diff)
+                    robots_behavior = e['data'][0]
+                    #~ print(f"Robots behavior: {robots_behavior}")
+                    cylinder_behavior = e['data'][1]
+                    #~ print(f"Cylinder behavior: {cylinder_behavior}")
+
+                    robots_diff = self.euclidean_distance(data[0], robots_behavior)
+                    cylinder_diff = self.euclidean_distance(data[1], cylinder_behavior)
+                    #~ print(f"Cylinder difference: {cylinder_diff}")
+
+                    avg_diff = (robots_diff + cylinder_diff) / len(e['data'])
+                    #~ print(f"Average distance: {avg_diff}")
+                    diffs.append(avg_diff)
+					
+                elif self.diff_function == 'euclidean_levenshtein':
+					
+                    robots_behavior = e['data'][0]
+                    #~ print(f"Robots behavior: {robots_behavior}")
+                    cylinder_behavior = e['data'][1]
+                    #~ print(f"Cylinder trajectory behavior: {cylinder_behavior}")
+
+                    robots_diff = self.euclidean_distance(data[0], robots_behavior)
+                    cylinder_diff = self.sequence_matcher_distance(data[1], cylinder_behavior)
+					
+                    avg_diff = (robots_diff + cylinder_diff) / len(e['data'])
+                    #~ print(f"Average distance: {avg_diff}")
+                    diffs.append(avg_diff)
                 
             novelty = sum(diffs)
 
