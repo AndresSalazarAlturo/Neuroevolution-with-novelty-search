@@ -21,7 +21,7 @@ from CTRNN import CTRNN
 
 ## Easier map set up
 desired_cylinder_pos = [180, 180]
-initial_cylinder_pos = [100, 40]
+initial_cylinder_pos = [100, 80]
 #~ initial_cylinder_pos = [30, 30]
 rectangle_big_horizontal_pos = [180, 130]
 rectangle_vertical_pos = [30, 130]
@@ -39,7 +39,7 @@ num_robots = 2
 ## GA parameters
 num_gens = 50
 ## 200 in Gomes - pop size
-POPULATION_SIZE = 40
+POPULATION_SIZE = 70
 GENOTYPE_SIZE = 712
 ## Weights, bias bounds
 #~ weights_bias_range = np.arange(-1, 1, 0.01)
@@ -52,14 +52,14 @@ step_size = 0.001	## Try to reduce the step size
 sensor_inputs = 68
 
 ## Archive size
-archive_size = 30
+archive_size = 50
 dist_metric = 'euclidean_levenshtein'
 
 ## Multiprocessing - Processors used
 #~ pool = Pool(3)
 
 ## Path to save robot behaviour
-folder_path = './results/2_epuck_CTRNN_robots_behaviour_2'
+folder_path = './results/2_epuck_CTRNN_robots_behaviour_5'
 ## _150Gens_80PopSize_40Archive_Euclidean_DistanceBetweenRobots_and_CylinderTrajectory
 
 class MyEPuck(pyenki.EPuck):
@@ -72,7 +72,7 @@ class MyEPuck(pyenki.EPuck):
 		
 		#~ print(f"Genome: {genome}")
 
-		#~ self.setLedRing(True)
+		self.setLedRing(True)
 
 		## Save robot info
 		self.xs = []
@@ -82,7 +82,7 @@ class MyEPuck(pyenki.EPuck):
 		# set up CTRNN
 		self.network = CTRNN(size=net_size, step_size=step_size)
 		# CTRNN parameters
-		self.network.taus = 1 + (3 * genome[0:net_size])
+		self.network.taus = 1 + (2 * genome[0:net_size])
 		#~ print(f"Taus values: {self.network.taus}")
 		self.network.biases = 9 * (genome[net_size:2*net_size] - 0.5)	
 		#~ print(f"Biases values: {self.network.biases}")
@@ -90,7 +90,7 @@ class MyEPuck(pyenki.EPuck):
 		#~ print(f"Network weights values: {self.network.weights}")
 		
 		## Extract the weights from genome
-		genome_input_weights = 20 * (genome[net_size*2+net_size**2:] - 0.5)
+		genome_input_weights = 10 * (genome[net_size*2+net_size**2:] - 0.5)
 		#~ print(f"Input weights values: {genome_input_weights}")
 		#~ print(f"Input weights length: {len(genome_input_weights)}")
 
@@ -342,7 +342,7 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1000): ##1200
+		for i in range(1200): ##1200
 			w.step(0.1, 3)
 			#~ c_xs.append(c.pos[0])
 			#~ c_ys.append(c.pos[1])
@@ -433,7 +433,7 @@ def run_optimization(population):
 			## Get cylinder behaviour
 			cylinder_bd = grid.set_of_visited_rects(c_xs, c_ys)
 			cylinder_bd_sorted = sorted(cylinder_bd)
-			list_cylinder_bd = str(cylinder_bd_sorted)
+			str_cylinder_bd = str(cylinder_bd_sorted)
 			
 			## Final cylinder position
 			cylinder_final_pos = (c_xs[-1], c_ys[-1])
@@ -449,6 +449,7 @@ def run_optimization(population):
 
 			## Normalize the distance between cylinder's final pos and cylinder desired pos
 			#~ normalized_dist_cylinder = (fitness - min_cylinder_value) / (max_cylinder_value - min_cylinder_value)
+			#~ print(f"Normalized cylinder dist: {normalized_dist_cylinder}")
 
 			## Get cylinder behaviour as final position (x,y)
 			#~ cylinder_final_pos = {c_xs[-1], c_ys[-1]}
@@ -471,7 +472,7 @@ def run_optimization(population):
 			else:
 				normalized_dist_between_robots = 0
 
-			final_bd = (avg_normalized_dist_between_robots, list_cylinder_bd)
+			final_bd = (avg_normalized_dist_between_robots, str_cylinder_bd)
 			#~ print(f"Final behaviour: {final_bd}")
 
 			## Here add the behaviour to the archive or not.
@@ -643,6 +644,6 @@ if __name__ == '__main__':
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(tested_genome, print_stuff=True, view=True)
 
 #~ params_test = [0] * 280
-#~ params_test = [0.99] * 712
+#~ params_test = [0.5] * 712
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
 #~ print(f"Max distance between robots: {total_dis_between_robots}")
