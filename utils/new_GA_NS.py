@@ -7,7 +7,7 @@ FIXED_BIAS = False
 BOUNDS = [0.01, 0.99]
 #~ BOUNDS = [-1, 1]
 ELITE_PART = 0.4
-range_factor = 0.3
+range_factor = 1
 
 ## For testing
 #~ random.seed(27)
