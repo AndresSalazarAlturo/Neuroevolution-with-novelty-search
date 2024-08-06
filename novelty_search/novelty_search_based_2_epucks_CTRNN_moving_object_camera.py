@@ -37,9 +37,9 @@ rectangle_vertical_pos = [30, 130]
 num_robots = 2
 
 ## GA parameters
-num_gens = 50
+num_gens = 70
 ## 200 in Gomes - pop size
-POPULATION_SIZE = 100
+POPULATION_SIZE = 120
 GENOTYPE_SIZE = 712
 ## Weights, bias bounds
 #~ weights_bias_range = np.arange(-1, 1, 0.01)
@@ -52,15 +52,15 @@ step_size = 0.001	## Try to reduce the step size
 sensor_inputs = 68
 
 ## Archive size
-archive_size = 60
-dist_metric = 'euclidean_levenshtein'
+archive_size = 80
+dist_metric = 'cylinder_only'
 
 ## Multiprocessing - Processors used
 #~ pool = Pool(3)
 
 ## Path to save robot behaviour
-folder_path = './results/2_epuck_CTRNN_robots_behaviour_5'
-## _150Gens_80PopSize_40Archive_Euclidean_DistanceBetweenRobots_and_CylinderTrajectory
+folder_path = './results/2_epuck_CTRNN_robots_behaviour_6'
+## _200Gens_150PopSize_100Archive_CylinderFinalPos
 
 class MyEPuck(pyenki.EPuck):
 	
@@ -84,13 +84,13 @@ class MyEPuck(pyenki.EPuck):
 		# CTRNN parameters
 		self.network.taus = 1 + (2 * genome[0:net_size])
 		#~ print(f"Taus values: {self.network.taus}")
-		self.network.biases = 9 * (genome[net_size:2*net_size] - 0.5)	
+		self.network.biases = 12 * (genome[net_size:2*net_size] - 0.5)	
 		#~ print(f"Biases values: {self.network.biases}")
-		self.network.weights = 9 * (np.reshape(genome[net_size*2:net_size*2+net_size**2], (net_size, net_size)) - 0.5)
+		self.network.weights = 12 * (np.reshape(genome[net_size*2:net_size*2+net_size**2], (net_size, net_size)) - 0.5)
 		#~ print(f"Network weights values: {self.network.weights}")
 		
 		## Extract the weights from genome
-		genome_input_weights = 9 * (genome[net_size*2+net_size**2:] - 0.5)
+		genome_input_weights = 12 * (genome[net_size*2+net_size**2:] - 0.5)
 		#~ print(f"Input weights values: {genome_input_weights}")
 		#~ print(f"Input weights length: {len(genome_input_weights)}")
 
@@ -191,7 +191,7 @@ class MyEPuck(pyenki.EPuck):
 		## Motor commands are taken from neurons 0 and 1
 		commands = self.network.outputs[:2].tolist()
 
-		scale = 20 # amplification for motor speed commands. 10 may actually be quite small for this robot
+		scale = 40 # amplification for motor speed commands. 10 may actually be quite small for this robot
 		self.leftSpeed = scale * commands[0]
 		self.rightSpeed = scale * commands[1]
 
@@ -284,7 +284,7 @@ def run_once(genome, print_stuff=False, view=False):
 	w.addObject(r_2)
 	
 	# create a cylindrical object and add to world - 30.000
-	c = pyenki.CircularObject(15, 15, 10000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
+	c = pyenki.CircularObject(15, 15, 1000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
 	c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
 	w.addObject(c) # add cylinder to the world
@@ -296,7 +296,7 @@ def run_once(genome, print_stuff=False, view=False):
 	## set up robots
 	#~ num_robots = 3
 	pucks = [0] * num_robots
-	
+
 	##Epucks pos
 	epucks_pos = [(40, 10), (180, 10)]
 
@@ -318,13 +318,14 @@ def run_once(genome, print_stuff=False, view=False):
 		w.addObject(e)
 
 	## Average distance between the robots
-	total_dis_between_robots = []
+	#~ total_dis_between_robots = []
+	total_dis_between_robots = [0]
 
 	# simulate
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1300): ##1200
+		for i in range(1200): ##1200
 			w.step(0.1, 3)
 			
 			if print_stuff:
@@ -334,12 +335,12 @@ def run_once(genome, print_stuff=False, view=False):
 								
 				## Calculate the average distance between the bots during the simulation
 				## Calculate the distance every 200 cycles
-				if i % 20 == 0:
+				#~ if i % 20 == 0:
 					## Calculate the average distance between the two robots
 					
-					robot_1_and_robot_2_distance = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
+					#~ robot_1_and_robot_2_distance = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
 					## List with the distances between the robots during the simulation
-					total_dis_between_robots.append(robot_1_and_robot_2_distance)
+					#~ total_dis_between_robots.append(robot_1_and_robot_2_distance)
 					
 				#~ print(f"Total dist between robots: {total_dis_between_robots}")
 
@@ -416,11 +417,11 @@ def run_optimization(population):
 											cylinder_final_pos[1])
 
 			## Minimum and maximum distance of the cylinder to the desired position
-			min_cylinder_value = 0
-			max_cylinder_value = 233
+			#~ min_cylinder_value = 0
+			#~ max_cylinder_value = 233
 
 			## Normalize the distance between cylinder's final pos and cylinder desired pos
-			normalized_dist_cylinder = (fitness - min_cylinder_value) / (max_cylinder_value - min_cylinder_value)
+			#~ normalized_dist_cylinder = (fitness - min_cylinder_value) / (max_cylinder_value - min_cylinder_value)
 			#~ print(f"Normalized cylinder dist: {normalized_dist_cylinder}")
 
 			## Get cylinder behaviour as final position (x,y)
@@ -432,19 +433,20 @@ def run_optimization(population):
 
 			## Normalize the distance between robots before calculating the average value
 			## Values calculated in the simulation
-			min_value = 5.67
-			max_value = 271.37
+			#~ min_value = 5.67
+			#~ max_value = 271.37
 	
-			normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
+			#~ normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
 
 			## Calculate the average value
 			#~ print(f"Original distance between robots: {total_dis_between_robots}")
-			if normalized_dist_between_robots != 0:
-				avg_normalized_dist_between_robots = sum(normalized_dist_between_robots) / len(normalized_dist_between_robots)
-			else:
-				normalized_dist_between_robots = 0
+			#~ if normalized_dist_between_robots != 0:
+				#~ avg_normalized_dist_between_robots = sum(normalized_dist_between_robots) / len(normalized_dist_between_robots)
+			#~ else:
+				#~ normalized_dist_between_robots = 0
 
-			final_bd = (avg_normalized_dist_between_robots, str_cylinder_bd, normalized_dist_cylinder)
+			#~ final_bd = (avg_normalized_dist_between_robots, str_cylinder_bd, normalized_dist_cylinder)
+			final_bd = str_cylinder_bd
 			#~ print(f"Final behaviour: {final_bd}")
 
 			## Here add the behaviour to the archive or not.
@@ -557,8 +559,8 @@ def save_novelty_archive(archive):
 	"""
 	
 	## Convert sets to list for json serialization
-	for item in archive:
-		item['data'] = list(item['data'])
+	#~ for item in archive:
+		#~ item['data'] = list(item['data'])
 	
 	filepath = folder_path + "/final_novelty_archive.json"
 	with open(filepath, 'w') as novelty_file:
