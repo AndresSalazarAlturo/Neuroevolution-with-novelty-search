@@ -6,8 +6,8 @@ MUTATION_PROBABILITY = 0.1
 FIXED_BIAS = False
 BOUNDS = [0.01, 0.99]
 #~ BOUNDS = [-1, 1]
-ELITE_PART = 0.4
-range_factor = 1
+ELITE_PART = 0.4	## 0.4
+range_factor = 0.3
 
 ## For testing
 #~ random.seed(27)
@@ -70,83 +70,14 @@ def random_number_close_range(current_value, x, bounds, int_value = False):
 
     else:
         ## Generate random rational number between lower and upper bounds
-        close_range = np.arange(lower_bound, upper_bound, 0.1)
-        # print("Close range value: ", close_range)
+        close_range = np.arange(lower_bound, upper_bound, 0.01)
+        #~ print("Close range value: ", close_range)
         random_rational_number = random.choice(close_range)
         while random_rational_number < bounds[0] or random_rational_number > bounds[1]:
             random_rational_number = random.choice(close_range)
-
+        #~ print(f"Random rational number: {random_rational_number}")
+        
     return random_rational_number
-
-def population_reproduce(p,fitness, n_genes):
-    """
-        Create new population based on the fitness.
-        :param p: Population - List.
-        :param fitness: Population fitness - List.
-        :param n_genes: Number of genes in my genotype - Int.
-    """
-    pop_size = len(p)
-    new_p = []
-
-    dataframe = pd.DataFrame({"Param":p,"Fitness":fitness})
-    dataframe = dataframe.sort_values(['Fitness'], ascending=False)
-    dataframe = dataframe.reset_index(drop=True)
-
-    #~ print("Data frame: ", dataframe)
-
-    # print("input population: ", p)
-
-    sorted_p = dataframe['Param'].tolist()
-
-    # print("Sorted parameters: ", sorted_p)
-
-    ## Selection
-    elite_part = round(ELITE_PART * pop_size)
-    new_p = new_p + sorted_p[:elite_part]
-
-    for i in range(pop_size-elite_part):
-        mom = p[random.randint(0, pop_size - 1)]
-        dad = p[random.randint(0, pop_size - 1)]
-        child = crossover(mom, dad, n_genes, p)
-        child = mutate(child, n_genes, FIXED_BIAS)
-        new_p.append(child)
-
-    return new_p
-
-# def population_reproduce_novelty(novelty_archive, p,novelty, n_genes):
-#     """
-#         Create new population based on the novelty.
-#         :param p: Population - List.
-#         :param novelty: Population novelty - List.
-#         :param n_genes: Number of genes in my genotype - Int.
-#     """
-#     pop_size = len(p)
-#     new_p = []
-
-#     dataframe = pd.DataFrame({"Param":p,"Novelty":novelty})
-#     dataframe = dataframe.sort_values(['Novelty'], ascending=False)
-#     dataframe = dataframe.reset_index(drop=True)
-
-#     # print("Data frame: ", dataframe)
-
-#     # print("input population: ", p)
-
-#     sorted_p = dataframe['Param'].tolist()
-
-#     # print("Sorted parameters: ", sorted_p)
-
-#     ## Selection
-#     elite_part = round(ELITE_PART * pop_size)
-#     new_p = new_p + sorted_p[:elite_part]
-
-#     for i in range(pop_size-elite_part):
-#         mom = p[random.randint(0, pop_size - 1)]
-#         dad = p[random.randint(0, pop_size - 1)]
-#         child = crossover(mom, dad)
-#         child = mutate(child, n_genes, FIXED_BIAS)
-#         new_p.append(child)
-
-#     return new_p
 
 def population_reproduce_novelty(novelty_archive, p, pop_size, n_genes):
     """
@@ -164,12 +95,17 @@ def population_reproduce_novelty(novelty_archive, p, pop_size, n_genes):
     ## Extract just the genome identifiers in sorted order
     sorted_parameters = [genome['genome'] for genome in sorted_genomes]
 
-    # print(f"Sorted parameters: {sorted_parameters}")
+    #~ novelty_values = [item['novelty'] for item in sorted_genomes]
+    #~ print(f"Novelty values sorted: {novelty_values}")
 
     ## Selection
     #~ elite_part = len(novelty_archive)
+    ## I am adding just the elite part of the novelty archive
+    ## Based on their novelty
     elite_part = round(len(novelty_archive) * ELITE_PART)
-    new_p = new_p + sorted_parameters
+    new_p = new_p + sorted_parameters[:elite_part]
+
+    #~ print(f"Elite part len: {elite_part}")
 
     for i in range(pop_size-elite_part):
         mom = p[random.randint(0, pop_size - 1)]
@@ -177,6 +113,8 @@ def population_reproduce_novelty(novelty_archive, p, pop_size, n_genes):
         child = crossover(mom, dad)
         child = mutate(child, n_genes, FIXED_BIAS)
         new_p.append(child)
+        
+    #~ print(f"New pop len: {len(new_p)}")
 
     return new_p
 
@@ -243,5 +181,7 @@ def mutate(child, n_genes, FIXED_BIAS):
         for gene_no in range(n_genes):
             if np.random.rand() < MUTATION_PROBABILITY:
                 child[gene_no] = random_number_close_range(child[gene_no], range_factor, BOUNDS)
+                
+        #~ print(f"I am mutating")
 
     return child

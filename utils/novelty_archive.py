@@ -132,6 +132,8 @@ class NoveltySearchArchive:
                     #~ print(f"Robots behavior: {robots_behavior}")
                     cylinder_behavior = e['data'][1]
                     #~ print(f"Cylinder trajectory behavior: {cylinder_behavior}")
+                    cylinder_final_pos_bd = e['data'][2]
+                    #~ print(f"Cylinder pos behavior: {cylinder_final_pos_bd}")
 
                     robots_diff = self.euclidean_distance(data[0], robots_behavior)
                     #~ cylinder_diff = self.sequence_matcher_distance(data[1], cylinder_behavior)
@@ -140,10 +142,22 @@ class NoveltySearchArchive:
                     
                     #~ print(f"Robots distance diff: {robots_diff}")
                     #~ print(f"Cylinder distance diff: {cylinder_diff}")
+                    
+                    cylinder_diff_2 = self.euclidean_distance(data[2], cylinder_final_pos_bd)
 					
-                    avg_diff = (robots_diff + cylinder_diff) / len(e['data'])
+                    avg_diff = (robots_diff + cylinder_diff + cylinder_diff_2) / len(e['data'])
                     #~ print(f"Average distance: {avg_diff}")
                     diffs.append(avg_diff)
+                    
+                elif self.diff_function == "cylinder_only":
+                    
+                    #~ cylinder_behavior = e['data']
+                    #~ cylinder_diff = self.euclidean_distance(data, cylinder_behavior)
+                    
+                    cylinder_behavior = e['data']
+                    cylinder_diff = leven_distance(data, cylinder_behavior)
+                    
+                    diffs.append(cylinder_diff)					 
                 
             novelty = sum(diffs)
             #~ print(f"Final novelty: {novelty}")
