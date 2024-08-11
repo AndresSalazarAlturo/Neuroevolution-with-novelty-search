@@ -1,6 +1,7 @@
 import numpy as np
-from Levenshtein import distance as leven_distance
-from difflib import SequenceMatcher 
+from Levenshtein import distance
+from difflib import SequenceMatcher
+import math
 
 class NoveltySearchArchive:
     def __init__(self, archive_size, diff_function):
@@ -51,16 +52,11 @@ class NoveltySearchArchive:
         
     def sequence_matcher_distance(self, str1, str2):
 
-		#~ str1 = str(s1)
-		#~ str2 = str(s2)
-		#~ print(f"str1: {str1}")
-		#~ print(f"str2: {str2}")
-
         matcher = SequenceMatcher(None, str1, str2)
 
         return 1 - matcher.ratio()
         
-    def euclidean_distance(self, val_1, val_2):
+    def euclidean_distance_float(self, val_1, val_2):
         """
             Calculate the Euclidean distance between two float values.
             :param val_1: First float value
@@ -69,6 +65,17 @@ class NoveltySearchArchive:
         """
         
         return abs(val_1 - val_2)
+        
+    def euclidean_distance(self, x1, y1, x2, y2):
+        """
+            Euclidean distance between two points.
+            :param x1: Initial position in x.
+            :param y1: Initial position in y.
+            :param x2: Final position in x.
+            :param y2: Final position in y.
+            :return: Euclidean distance between two points.
+		"""
+        return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)	
 
     def compute_novelty(self, data):
         """
@@ -118,8 +125,8 @@ class NoveltySearchArchive:
                     cylinder_behavior = e['data'][1]
                     #~ print(f"Cylinder behavior: {cylinder_behavior}")
 
-                    robots_diff = self.euclidean_distance(data[0], robots_behavior)
-                    cylinder_diff = self.euclidean_distance(data[1], cylinder_behavior)
+                    robots_diff = self.euclidean_distance_float(data[0], robots_behavior)
+                    cylinder_diff = self.euclidean_distance_float(data[1], cylinder_behavior)
                     #~ print(f"Cylinder difference: {cylinder_diff}")
 
                     avg_diff = (robots_diff + cylinder_diff) / len(e['data'])
@@ -135,15 +142,15 @@ class NoveltySearchArchive:
                     cylinder_final_pos_bd = e['data'][2]
                     #~ print(f"Cylinder pos behavior: {cylinder_final_pos_bd}")
 
-                    robots_diff = self.euclidean_distance(data[0], robots_behavior)
+                    robots_diff = self.euclidean_distance_float(data[0], robots_behavior)
                     #~ cylinder_diff = self.sequence_matcher_distance(data[1], cylinder_behavior)
                     
-                    cylinder_diff = leven_distance(data[1], cylinder_behavior)
+                    cylinder_diff = distance(data[1], cylinder_behavior)
                     
                     #~ print(f"Robots distance diff: {robots_diff}")
                     #~ print(f"Cylinder distance diff: {cylinder_diff}")
                     
-                    cylinder_diff_2 = self.euclidean_distance(data[2], cylinder_final_pos_bd)
+                    cylinder_diff_2 = self.euclidean_distance_float(data[2], cylinder_final_pos_bd)
 					
                     avg_diff = (robots_diff + cylinder_diff + cylinder_diff_2) / len(e['data'])
                     #~ print(f"Average distance: {avg_diff}")
@@ -152,11 +159,13 @@ class NoveltySearchArchive:
                 elif self.diff_function == "cylinder_only":
                     
                     #~ cylinder_behavior = e['data']
-                    #~ cylinder_diff = self.euclidean_distance(data, cylinder_behavior)
+                    #~ cylinder_diff = self.euclidean_distance_float(data, cylinder_behavior)
                     
                     cylinder_behavior = e['data']
-                    cylinder_diff = leven_distance(data, cylinder_behavior)
-                    
+                    #~ cylinder_diff = distance(data, cylinder_behavior)
+                    cylinder_diff = self.euclidean_distance(data[0], data[1], cylinder_behavior[0], cylinder_behavior[1])
+                    #~ print(f"cylinder behaviour: {cylinder_behavior}")
+                    #~ print(f"Data from archive: {data}")
                     diffs.append(cylinder_diff)					 
                 
             novelty = sum(diffs)
@@ -176,4 +185,17 @@ class NoveltySearchArchive:
             if all_data['genome_id'] == desired_behaviour:
                 # print("The desired behaviour is in position: ", self.archive.index(all_data))
                 all_data['novelty'] = novelty
+                break
+                
+    def add_fitness_to_behaviour(self, fitness, genotype_id):
+        """
+            Add fitness to bebaviour based on fitness ID.
+            :param fitness: Fitness value of that candidate.
+            :param genotype_id: Genotype ID.
+        """
+        desired_behaviour = genotype_id
+        
+        for all_data in self.archive:
+            if all_data['genome_id'] == desired_behaviour:
+                all_data['fitness'] = fitness
                 break
