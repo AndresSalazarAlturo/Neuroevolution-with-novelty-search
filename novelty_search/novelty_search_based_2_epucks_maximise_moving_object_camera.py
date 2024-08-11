@@ -10,82 +10,81 @@ from Grid import Grid
 import math
 from new_GA_NS import *
 from novelty_archive import *
-from multi_layer_nn_controller import *
-from multiprocessing import Pool
+from multi_layer_Forward_nn_controller import *
 
 ## World's objects positions
 ## 80, 50
 ## 100, 140
 ## Desire final position for cylinder = 170, 175; 180, 180
+
+## Easier map set up
 desired_cylinder_pos = [180, 180]
-initial_cylinder_pos = [140, 40]
-rectangle_big_horizontal_pos = [130, 135]
-rectangle_vertical_pos = [70, 90]
-rectangle_small_horizontal_pos = [100, 55]
+initial_cylinder_pos = [100, 80]
+#~ initial_cylinder_pos = [30, 30]
+rectangle_big_horizontal_pos = [180, 130]
+rectangle_vertical_pos = [30, 130]
+small_vertical_pos = [65,170]
+funnel_1 = [160, 40]
+funnel_2 = [40, 40]
+
+## Hard map set up
+#~ desired_cylinder_pos = [180, 180]
+#~ initial_cylinder_pos = [140, 40]
+#~ rectangle_big_horizontal_pos = [130, 135]
+#~ rectangle_vertical_pos = [70, 90]
+#~ rectangle_small_horizontal_pos = [100, 55]
 
 ## Number of robots
 num_robots = 2
 
-## GA parameters
-num_gens = 200
-## 200 in Gomes - pop size
-POPULATION_SIZE = 100
-GENOTYPE_SIZE = 215
-## Weights, bias bounds
-weights_bias_range = np.arange(-5, 5, 0.5)
-
 ## Controller related
-num_input_neurons = 3
-output_size = 2
+num_nn_neurons = [20, 10, 6, 2]
 inputs_size = 68
 
-## Archive size
-archive_size = 60
+genotype_size = (inputs_size * num_nn_neurons[0]) + (num_nn_neurons[0] * num_nn_neurons[1]) + (num_nn_neurons[1] * num_nn_neurons[2]) + (num_nn_neurons[2] * num_nn_neurons[3]) +\
+                num_nn_neurons[0] + num_nn_neurons[1] + num_nn_neurons[2] + num_nn_neurons[3]
 
-## Multiprocessing - Processors used
-#~ pool = Pool(3)
+## GA parameters
+num_gens = 90
+## 200 in Gomes - pop size
+POPULATION_SIZE = 130
+GENOTYPE_SIZE = genotype_size
+## Weights, bias bounds
+#~ weights_bias_range = np.arange(-5, 5, 0.5)
+weights_bias_range = np.arange(0.01, 0.99, 0.01)
+
+## Archive size
+archive_size = 100
+dist_metric = 'cylinder_only'
 
 ## Path to save robot behaviour
-folder_path = './results/2_epuck_robots_behaviour_26'
-## _200Gens_100PopSize_60Archive_Levenshtein_DistanceBetweenRobots_and_CylinderTrajectory
+folder_path = './results/2_epuck_Forward_robots_behaviour_7'
+## _90Gens_130PopSize_100Archive_CylinderPosXY_EasyMap_Bounded
 
 class MyEPuck(pyenki.EPuck):
 	
 	# init EPuck. You can add any args and other code you need
-	def __init__(self, params, num_input_neurons, output_size, inputs_size):
+	def __init__(self, params, num_nn_neurons, inputs_size):
 		super(MyEPuck, self).__init__()
-		self.params = params
-		self.num_input_neurons = num_input_neurons
-		self.output_size = output_size
+
+		self.num_nn_neurons = num_nn_neurons
 		self.inputs_size = inputs_size
+		
+		self.setLedRing(True)
 
 		## Save robot info
 		self.xs = []
 		self.ys = []
+		
+		## Transform the genotype values to a range of -5 to 5
+		genome_arr = np.array(params)
+		self.genome = 10 * (genome_arr - 0.5)
+		#~ print(f"Genotype: {genome}")
 
 	# the EPuck's controller. You can't add args to this method, so any parameters you require must be set in init or other code
 	def controlStep(self, dt):
 
-		## Get robot's camera values
-		#~ print('Cam image: ' + str(self.cameraImage))
-		#~ print(len(self.cameraImage), self.cameraImage[0])
-
 		camera_obj = self.cameraImage
-		#~ for pixel in range(len(camera_obj)):
-			#~ print(f"Camera pixel #{pixel + 1}: {camera_obj[pixel]}")
-			#~ print("---------------------------")
-			
-		#~ print("Camera obj: ", dir(camera_obj))
-		#~ print("------------------------------------------------------------")
-		#~ print("Color instance: ", dir(camera_obj[0]), "\n To Gray: ", camera_obj[0].toGray())
-		#~ print("------------------------------------------------------------")
-		#~ print("Other instance: ", dir(camera_obj[0].components), "\n Obj --> ", camera_obj[0].components, "\n Class type --> ", type(camera_obj[0].components))
-		#~ print("------------------------------------------------------------")
-		#~ print("Index: ", dir(camera_obj[0].components.index), "\n Index Value --> ", camera_obj[0].components.index)
-		#~ print("------------------------------------------------------------")
-		#~ print("Count: ", dir(camera_obj[0].components.count), "\n Count Value --> ", camera_obj[0].components.count)
-		#~ print("------------------------------------------------------------")
-		#~ help(camera_obj)
 
 		camera_inputs = []
 		## Extract gray values
@@ -97,16 +96,16 @@ class MyEPuck(pyenki.EPuck):
 		ir_sensors = self.proximitySensorValues
 		## Scale sensor values down by factor of 1000
 		ir_sensor_inputs = (0.001 * np.array(ir_sensors)).tolist()
-		
+
 		## Concatenate the camera and IR inputs
 		final_inputs = camera_inputs + ir_sensor_inputs		
 		#~ print(f"Final inputs size: {len(final_inputs)}") 68!
-		
+
 		## Calculate the motor speeds with multi_layer feed forward controller
-		controller_obj = ForwardNeuralNetwork(self.params, self.num_input_neurons, self.output_size, self.inputs_size)
+		controller_obj = ForwardNeuralNetwork(self.genome, self.num_nn_neurons, self.inputs_size)
 		## Outputs
 		commands = controller_obj.forward(final_inputs)
-		
+
 		scale = 10 # amplification for motor speed commands. 10 may actually be quite small for this robot
 		self.leftSpeed = scale * commands[0][0]
 		self.rightSpeed = scale * commands[0][1]
@@ -114,6 +113,111 @@ class MyEPuck(pyenki.EPuck):
 		## Save pos
 		self.xs.append(self.pos[0])
 		self.ys.append(self.pos[1])
+		
+def plot_archive_behaviours(archive, default_title = "Candidate behaviour ID", default_file_name = "candidate_behaviour_id",
+							pucks=None, grid=None, c_xs=None, c_ys=None, genome_id=None):
+	"""
+		Plot archive behaviours and save them. Also, plots best solution when found.
+		:param archive: Final archive list of dictionaries.
+		:param default_title: Name of the default plots - Archive plots.
+		:param default_file_name: Name of default files - Archive files.
+		:param pucks: e-pucks objects sent to plot best solution.
+		:param grid: grid sent to plot best solution.
+		:param c_xs: Cylinder x coordinates for best solution.
+		:param c_ys: Cylinder y coordinates for best solution.
+	"""
+	
+	if default_title == "Candidate behaviour ID":
+		for candidate in archive:
+			
+			## Run the most novel candidate to plot robot and cylinder trajectory
+			pucks, grid, c_xs, c_ys, total_dis_between_robots = run_once(candidate['genome'], print_stuff=True, view=False)
+			
+			## Plot robot behaviour
+			plt.figure()
+			for robot_number in range(num_robots):
+				if robot_number == 0:
+					trajectory_color = 'blue'
+					robot_trajectory_number = f"Robot {robot_number+1}"
+				elif robot_number == 1:
+					trajectory_color = 'green'
+					robot_trajectory_number = f"Robot {robot_number+1}"
+				else:
+					trajectory_color = 'purple'
+					robot_trajectory_number = f"Robot {robot_number+1}"
+
+				## Plot robot trajectory
+				plt.plot(pucks[robot_number].xs, pucks[robot_number].ys, color=trajectory_color, linewidth=0.5, label=robot_trajectory_number)
+				## Add a square at the start of the trajectory
+				plt.plot(pucks[robot_number].xs[0], pucks[robot_number].ys[0], marker='s', markersize=5, color=trajectory_color, label='Start')
+				## Add a circle marker at the end of the line
+				plt.plot(pucks[robot_number].xs[-1], pucks[robot_number].ys[-1], marker='o', markersize=5, color=trajectory_color, label='End')
+				
+			## Cylinder trajectory
+			plt.plot(c_xs, c_ys, color='red', linewidth=0.5, label='Cylinder trajectory')
+			## Add a square at the start of the trajectory
+			plt.plot(c_xs[0], c_ys[0], marker='s', markersize=5, color='red', label='Start')
+			## Add a circle marker at the end of the line
+			plt.plot(c_xs[-1], c_ys[-1], marker='o', markersize=5, color='red', label='End')
+			## Plot grid
+			grid.plot_grid()
+			plt.title(f"{default_title} {candidate['genome_id']}")
+			plt.legend(loc='upper left', fontsize='small')
+			file_name = f"{default_file_name}_{candidate['genome_id']}"
+			plt.savefig(f"{folder_path}/{file_name}")
+			plt.close()
+			#~ plt.show()
+	
+	else:
+
+		## Plot best solution robots behaviour
+		plt.figure()
+		for robot_number in range(num_robots):
+			if robot_number == 0:
+				trajectory_color = 'blue'
+				robot_trajectory_number = f"Robot {robot_number+1}"
+			elif robot_number == 1:
+				trajectory_color = 'green'
+				robot_trajectory_number = f"Robot {robot_number+1}"
+			else:
+				trajectory_color = 'purple'
+				robot_trajectory_number = f"Robot {robot_number+1}"
+
+			## Plot robot trajectory
+			plt.plot(pucks[robot_number].xs, pucks[robot_number].ys, color=trajectory_color, linewidth=0.5, label=robot_trajectory_number)
+			## Add a square at the start of the trajectory
+			plt.plot(pucks[robot_number].xs[0], pucks[robot_number].ys[0], marker='s', markersize=5, color=trajectory_color, label='Start')
+			## Add a circle marker at the end of the line
+			plt.plot(pucks[robot_number].xs[-1], pucks[robot_number].ys[-1], marker='o', markersize=5, color=trajectory_color, label='End')
+				
+		## Cylinder trajectory
+		plt.plot(c_xs, c_ys, color='red', linewidth=0.5, label='Cylinder trajectory')
+		## Add a square at the start of the trajectory
+		plt.plot(c_xs[0], c_ys[0], marker='s', markersize=5, color='red', label='Start')
+		## Add a circle marker at the end of the line
+		plt.plot(c_xs[-1], c_ys[-1], marker='o', markersize=5, color='red', label='End')
+		## Plot grid
+		grid.plot_grid()
+		plt.title(f"{default_title} {genome_id}")
+		plt.legend(loc='upper left', fontsize='small')
+		file_name = f"{default_file_name}_{genome_id}"
+		plt.savefig(f"{folder_path}/{file_name}")
+		plt.close()
+		#~ plt.show()
+
+def save_novelty_archive(archive, file_name="final_novelty_archive.json"):
+	"""
+		Save novelty archive as text file.
+		:param archive: Final archive list of dictionaries.
+	"""
+	
+	## Convert sets to list for json serialization
+	#~ for item in archive:
+		#~ item['data'] = list(item['data'])
+	
+	filepath = folder_path + f"/{file_name}"
+	with open(filepath, 'w') as novelty_file:
+		json.dump(archive, novelty_file, indent=4)
 
 def euclidean_distance(x1, y1, x2, y2):
 	"""
@@ -138,33 +242,84 @@ def run_once(genome, print_stuff=False, view=False):
 	# create rectangular world - note that coordinate origin is corner of arena
 	w = pyenki.WorldWithTexturedGround(200, 200, "dummyFileName", pyenki.Color(1, 0, 0, 1)) # rectangular arena: width, height, (texture file name?), walls colour
 
-	# create a rectangular object and add to world - Big horizontal one
-	r_1 = pyenki.RectangularObject(130, 10, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	##############################
+	######### Hard world #########
+	##############################
+
+	#~ # create a rectangular object and add to world - Big horizontal one
+	#~ r_1 = pyenki.RectangularObject(130, 10, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	#~ r_1.pos = (rectangle_big_horizontal_pos[0], rectangle_big_horizontal_pos[1])
+	#~ ## 0.785
+	#~ r_1.angle = 0
+	#~ r_1.collisionElasticity = 0
+	#~ w.addObject(r_1)
+	
+	#~ # create a rectangular object and add to world - Vertical one
+	#~ r_2 = pyenki.RectangularObject(10, 80, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	#~ r_2.pos = (rectangle_vertical_pos[0], rectangle_vertical_pos[1])
+	#~ ## 0.785
+	#~ r_2.angle = 0
+	#~ r_2.collisionElasticity = 0
+	#~ w.addObject(r_2)
+	
+	#~ # create a rectangular object and add to world - Small horizontal one
+	#~ r_3 = pyenki.RectangularObject(10, 50, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	#~ r_3.pos = (rectangle_small_horizontal_pos[0], rectangle_small_horizontal_pos[1])
+	#~ ## 0.785
+	#~ r_3.angle = 1.6
+	#~ r_3.collisionElasticity = 0
+	#~ w.addObject(r_3)
+
+	#~ # create a cylindrical object and add to world - 30.000
+	#~ c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
+	#~ c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
+	#~ c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
+	#~ w.addObject(c) # add cylinder to the world
+	
+	##############################
+	######## Easier world ########
+	##############################
+
+	# create a rectangular object and add to world - horizontal 1
+	r_1 = pyenki.RectangularObject(80, 10, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
 	r_1.pos = (rectangle_big_horizontal_pos[0], rectangle_big_horizontal_pos[1])
 	## 0.785
 	r_1.angle = 0
 	r_1.collisionElasticity = 0
 	w.addObject(r_1)
-	
-	# create a rectangular object and add to world - Vertical one
-	r_2 = pyenki.RectangularObject(10, 80, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+
+	# create a rectangular object and add to world - horizontal 2
+	r_2 = pyenki.RectangularObject(10, 70, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
 	r_2.pos = (rectangle_vertical_pos[0], rectangle_vertical_pos[1])
 	## 0.785
-	r_2.angle = 0
+	r_2.angle = 1.6
 	r_2.collisionElasticity = 0
 	w.addObject(r_2)
 	
-	# create a rectangular object and add to world - Small horizontal one
-	r_3 = pyenki.RectangularObject(10, 50, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
-	r_3.pos = (rectangle_small_horizontal_pos[0], rectangle_small_horizontal_pos[1])
+	# create a rectangular object and add to world - Vertical small one
+	r_s = pyenki.RectangularObject(10, 65, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	r_s.pos = (small_vertical_pos[0], small_vertical_pos[1])
 	## 0.785
-	r_3.angle = 1.6
-	r_3.collisionElasticity = 0
-	w.addObject(r_3)
+	r_s.angle = 0
+	r_s.collisionElasticity = 0
+	w.addObject(r_s)
 
-	# create a cylindrical object and add to world
-	c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)	
-	#~ c = pyenki.CircularObject(20, 15, 1000, pyenki.Color(0, 0, 0, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
+	## Create funnel 1
+	f_1 = pyenki.RectangularObject(10, 140, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	f_1.pos = (funnel_1[0], funnel_1[1])
+	f_1.angle = 0.5
+	f_1.collisionElasticity = 0
+	w.addObject(f_1)
+
+	## Create funnel 2
+	f_2 = pyenki.RectangularObject(10, 130, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	f_2.pos = (funnel_2[0], funnel_2[1])
+	f_2.angle = -0.4
+	f_2.collisionElasticity = 0
+	w.addObject(f_2)
+
+	# create a cylindrical object and add to world - 30.000
+	c = pyenki.CircularObject(15, 15, 30000, pyenki.Color(1, 1, 1, 1)) # radius, height, mass, colour. Color params are red, green, blue, alpha (transparency)
 	c.pos = (initial_cylinder_pos[0], initial_cylinder_pos[1]) # set cylinder's position: x, y
 	c.collisionElasticity = 0 # floating point value in [0, 1]; 0 means no bounce, 1 means a lot of bounce in collisions
 	w.addObject(c) # add cylinder to the world
@@ -177,19 +332,29 @@ def run_once(genome, print_stuff=False, view=False):
 	#~ num_robots = 2
 	pucks = [0] * num_robots
 	
+	##Epucks pos
+	epucks_pos = [(60, 10), (140, 10)]
+	
 	for n in range(num_robots):
 		## Create an instance of e-puck class
-		e = MyEPuck(genome, num_input_neurons, output_size, inputs_size)
+		e = MyEPuck(genome, num_nn_neurons, inputs_size)
 		pucks[n] = e
-		e.pos = (n * 50, n * 60)
-		#~ e.pos = (n * 100, n * 40)
+		## Test
+		e.pos = (epucks_pos[n][0], epucks_pos[n][1])
+		## My default position
+		#~ e.pos = (n * 50, n * 60)
+		e.angle = 1.5
+		#~ e.pos = (n * 200, n * 10)
+		#~ e.pos = (n + 1 * 50, n + 1 * 60)
+		#~ e.pos = (n + 1 * 100, n + 1 * 40)
 		#~ e.pos = (n * 0, n * 1)
 		#~ e.pos = (n * 130, n * 90)
 		e.collisionElasticity = 0
 		w.addObject(e)
 
 	## Average distance between the robots
-	total_dis_between_robots = []
+	#~ total_dis_between_robots = []
+	total_dis_between_robots = [0]
 	
 	# simulate
 	if view:
@@ -197,41 +362,22 @@ def run_once(genome, print_stuff=False, view=False):
 	else:
 		for i in range(1200): ##1000
 			w.step(0.1, 3)
-			#~ c_xs.append(c.pos[0])
-			#~ c_ys.append(c.pos[1])
+			
 			if print_stuff:
-				#~ print("A robot:", e.pos)
-				#~ print("-----------------")
-				#~ print(f"Cylinder pos: {c.pos}")
-				#~ print(f"Cylinder pos type: {type(c.pos)}")
+				
 				c_xs.append(c.pos[0])
 				c_ys.append(c.pos[1])
-				#~ print(f"C_xs: {c_xs}")
-				#~ print(f"C_ys: {c_ys}")
 				
 				## Calculate the average distance between the bots during the simulation
 				## Calculate the distance every 200 cycles
-				if i % 50 == 0:
-					dis_between_robots = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
-					## List with the distances between the robots during the simulation
-					total_dis_between_robots.append(dis_between_robots)
+				#~ if i % 20 == 0:
+					## Calculate the average distance between the two robots
 					
-				#~ dis_between_robots = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
-				#~ total_dis_between_robots.append(dis_between_robots)
-				
-		#~ if plots:
-		## Plot the trajectory in the terminal
-		#~ fig = plotille.Figure()
-		#~ fig.width = 70
-		#~ fig.height = 30
-		#~ fig.set_x_limits(min_=0, max_=100)
-		#~ fig.set_y_limits(min_=0, max_=100)
-		#~ fig.color_mode = 'byte'
-		#~ grid.plotille_grid(fig)
-		#~ fig.plot(e.xs, e.ys, lc=25)
-		#~ print(fig.show())
-		
-		#~ print(f"Robot position: {e.pos}")
+					#~ robot_1_and_robot_2_distance = euclidean_distance(pucks[0].xs[-1], pucks[0].ys[-1], pucks[1].xs[-1], pucks[1].ys[-1])
+					## List with the distances between the robots during the simulation
+					#~ total_dis_between_robots.append(robot_1_and_robot_2_distance)
+					
+				#~ print(f"Total dist between robots: {total_dis_between_robots}")
 
 		# return robot and grid
 		return pucks, grid, c_xs, c_ys, total_dis_between_robots
@@ -242,8 +388,8 @@ def run_optimization(population):
 	print("Starting optimization")
 	print("Population Size %i, Genome Size %i"%(POPULATION_SIZE, GENOTYPE_SIZE))
 
-	## list to store average fitness
-	#~ average_fitness_over_time = []
+	## Good candidate found
+	found = False
 	
 	## List to store average novelty
 	average_novelty_over_time = []
@@ -252,12 +398,15 @@ def run_optimization(population):
 	genotype_id = 0
 	
 	## Create novelty search archive instance
-	archive = NoveltySearchArchive(archive_size, leven_distance)
+	archive = NoveltySearchArchive(archive_size, dist_metric)
 	
 	## Run GA for a fixed number of generations
 	for gen in range(num_gens):
 		#~ population_fitness = []
 		population_novelty = []
+		
+		## Save generation trajectories
+		gen_trajectories = []
 
 		for ind in range(POPULATION_SIZE):
 			print("----------------------------------------")
@@ -270,89 +419,75 @@ def run_optimization(population):
 
 			##Evaluate genotype
 			pucks, grid, c_xs, c_ys, total_dis_between_robots = run_once(genotype, print_stuff=True, view=False)
-
-			## Final cylinder position
-			#~ cylinder_final_pos = (c_xs[-1], c_ys[-1])
-			#~ print(f"Cylinder final pos: X:{cylinder_final_pos[0]}, Y:{cylinder_final_pos[1]}")
 			
-			##Evaluate fitness
-			#~ fitness = fitness_calculate_distance(initial_cylinder_pos[0], initial_cylinder_pos[1], cylinder_final_pos[0], 
-													#~ cylinder_final_pos[1])
-
-			## Add fitness to population fitness
-			#~ population_fitness.append(fitness)				
-			
-			## Get robot behaviour
-			#~ robot_bd = grid.set_of_visited_rects(e.xs, e.ys)
-			#~ print(f"Robot behaviour description: {robot_bd}")
-			
-			#~ print(f"Epuck 1: {pucks}")
-			
-			## Get robots behaviour	
-			#~ robot_1_bd = grid.set_of_visited_rects(pucks[0].xs, pucks[0].ys)
-			#~ robot_2_bd = grid.set_of_visited_rects(pucks[1].xs, pucks[1].ys)
-
-			## Here just create a third set with the two different behaviours
-			#~ str_robot_1_bd = str(robot_1_bd)
-			#~ str_robot_2_db = str(robot_2_bd)
-			
-			#~ final_bd = {str_robot_1_bd, str_robot_2_db}
+			## Get cylinder trajectory
+			temp_cylinder_trajectory = (c_xs, c_ys)
+			gen_trajectories.append(temp_cylinder_trajectory)
+			#~ print(f"Temp trajectory: {temp_cylinder_trajectory}")
 			
 			## Get cylinder behaviour
 			#~ cylinder_bd = grid.set_of_visited_rects(c_xs, c_ys)
+			#~ print(f"Cylinder NO sorted trajectory: {cylinder_bd}")
 			#~ cylinder_bd_sorted = sorted(cylinder_bd)
-			#~ str_cylinder_bd = str(cylinder_bd_sorted)
-	
-			## Get cylinder behaviour as final position (x,y)
+			#~ print(f"Cylinder sorted trajectory: {cylinder_bd_sorted}")
+			#~ list_cylinder_bd = list(cylinder_bd)
+			
+			## Final cylinder position
 			cylinder_final_pos = (c_xs[-1], c_ys[-1])
+			#~ print(f"Cylinder final pos: X:{cylinder_final_pos[0]}, Y:{cylinder_final_pos[1]}")
+			
+			##Evaluate fitness
+			fitness = euclidean_distance(desired_cylinder_pos[0], desired_cylinder_pos[1], cylinder_final_pos[0], 
+											cylinder_final_pos[1])
+
+			## Minimum and maximum distance of the cylinder to the desired position
+			#~ min_cylinder_value = 0
+			#~ max_cylinder_value = 233
+
+			## Normalize the distance between cylinder's final pos and cylinder desired pos
+			#~ normalized_dist_cylinder = (fitness - min_cylinder_value) / (max_cylinder_value - min_cylinder_value)
+			#~ print(f"Normalized cylinder dist: {normalized_dist_cylinder}")
+
+			## Get cylinder behaviour as final position (x,y)
+			#~ cylinder_final_pos = {c_xs[-1], c_ys[-1]}
 			## Sort the cylinder information to keep the order when transforming
 			## to string
 			#~ cylinder_final_pos_sorted = sorted(cylinder_final_pos)
 			#~ str_cylinder_final_pos = str(cylinder_final_pos_sorted)
-			
-			##Evaluate fitness
-			fitness = euclidean_distance(desired_cylinder_pos[0], desired_cylinder_pos[1], cylinder_final_pos[0], 
-										cylinder_final_pos[1])
-										
-			## Minimum and maximum distance of the cylinder to the desired position
-			min_cylinder_value = 0
-			max_cylinder_value = 233
-			
-			## Normalize the distance between cylinder's final pos and cylinder desired pos
-			normalized_dist_cylinder = (fitness - min_cylinder_value) / (max_cylinder_value - min_cylinder_value)
 
 			## Normalize the distance between robots before calculating the average value
 			## Values calculated in the simulation
-			min_value = 5.67
-			max_value = 271.37
+			#~ min_value = 5.67
+			#~ max_value = 271.37
 	
-			normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
+			#~ normalized_dist_between_robots = [(x - min_value) / (max_value - min_value) for x in total_dis_between_robots]
 
 			## Calculate the average value
 			#~ print(f"Original distance between robots: {total_dis_between_robots}")
-			if normalized_dist_between_robots != 0:
-				avg_normalized_dist_between_robots = sum(normalized_dist_between_robots) / len(normalized_dist_between_robots)
-			else:
-				normalized_dist_between_robots = 0
+			#~ if normalized_dist_between_robots != 0:
+				#~ avg_normalized_dist_between_robots = sum(normalized_dist_between_robots) / len(normalized_dist_between_robots)
+			#~ else:
+				#~ normalized_dist_between_robots = 0
 
-			## Sort the normalized robot's distance value to keep the order when
-			## transforming to string
-			#~ avg_normalized_dist_between_robots_sorted = sorted(avg_normalized_dist_between_robots)
-			#~ str_avg_normalized_dist_between_robots = str(avg_normalized_dist_between_robots)
-
-			final_bd = (avg_normalized_dist_between_robots, normalized_dist_cylinder)
+			#~ final_bd = (avg_normalized_dist_between_robots, str_cylinder_bd, normalized_dist_cylinder)
+			final_bd = cylinder_final_pos
+			#~ print(f"Final behaviour: {final_bd}")
 
 			## Here add the behaviour to the archive or not.
 			## Add the first behaviour to the archive
 			if len(archive.archive) == 0:
 				archive.insert_entry(genotype, final_bd, 0, genotype_id)
 				archive.add_novelty_to_behaviour(0, genotype_id)
+				archive.add_fitness_to_behaviour(fitness, genotype_id)
 				
 				## Add novelty to population novelty
 				population_novelty.append(0)
 				
 				## Update genotype ID
 				genotype_id += 1
+				
+				## To test best solution plot
+				#~ novelty = 0
 
 			else:
 				## When there is at least one candidate in the archive
@@ -362,6 +497,7 @@ def run_optimization(population):
 				#~ print(f"Novelty for {robot_bd} is {novelty}")
 				archive.insert_entry(genotype, final_bd, novelty, genotype_id)
 				archive.add_novelty_to_behaviour(novelty, genotype_id)
+				archive.add_fitness_to_behaviour(fitness, genotype_id)
 				#~ print("---------------------------------------------")
 				#~ print(f"Novelty archive: {archive.archive}")
 
@@ -370,120 +506,65 @@ def run_optimization(population):
 				
 				## Update genotype ID
 				genotype_id += 1
+				
+			## Stop if fitness is less than 20
+			if fitness <= 20:
+				found = True
+				## Save the best genotype - The one that achieve the goal
+				best_genotype = [0]
+				best_genotype_dict = {"genome_id":genotype_id, "genome":genotype, "data":final_bd, "novelty":novelty, "fitness":fitness, "num_gens":gen}
+				best_genotype[0] = best_genotype_dict
+				## Save and plot the best result
+				save_novelty_archive(best_genotype, file_name="best_solution.json")
+				plot_archive_behaviours(best_genotype, default_title = "Best solution behaviour ID", default_file_name = "best_solution_behaviour_id",
+										pucks=pucks, grid=grid, c_xs=c_xs, c_ys=c_ys, genome_id=genotype_id)
+				break
 		
-		## Get the most novel and least novel behaviour
-		most_novel_genome = archive.get_most_novel()
-		least_novel_genome = archive.get_least_novel()
+		## Here plot the cylinder behaviours in the generation
+		plot_gen_cylinder_behaviors(gen_trajectories, grid, gen)
+		#~ print(f"Cylinder trajectories in generation: {gen_trajectories}")
+		
 		## Get the average novelty
 		avg_novelty_archive = archive.get_avg_novelty()
-		
-		#~ print("---------------------------------------------")
-		#~ print(f"Most novel genome: {most_novel_genome}")
-		#~ print("---------------------------------------------")
-		#~ print(f"Least novel genome: {least_novel_genome}")
-		#~ print("---------------------------------------------")
-		#~ print(f"Average novelty in archive: {avg_novelty_archive}")
-		#~ print("---------------------------------------------")
-		#~ print(f"Population novelty: {population_novelty}")
-		#~ print("---------------------------------------------")
-			
-		#~ best_fitness, best_fitness_val = population_get_fittest(population, population_fitness)
-		#~ average_fitness = population_get_average_fitness(population_fitness)
-		#~ print(f"Best Fitness params: {best_fitness}")
-		#~ print(f"Best Fitness value: {best_fitness_val}")
-		#~ print(f"Average Fitness: {average_fitness}")
-		
-		## Store average fitness over generations
-		#~ average_fitness_over_time.append(average_fitness)
 		
 		## Store average novelty over generations
 		average_novelty_over_time.append(avg_novelty_archive)
 		
+		if found:
+			break
+		
+		#~ ## When the optimal solution has not been found
+		#~ best_genotype = None
+		
 		if(gen < num_gens-1):
 			population = population_reproduce_novelty(archive.archive, population, POPULATION_SIZE, GENOTYPE_SIZE)
 			#~ print(f"New population: {population}")
+			
+	## Get the most novel and least novel behaviour
+	most_novel_genome = archive.get_most_novel()
+	least_novel_genome = archive.get_least_novel()
 
 	#~ return best_fitness, best_fitness_val, average_fitness_over_time	
 	return most_novel_genome, least_novel_genome, average_novelty_over_time, archive
 
-def plot_behaviours(archive):
-	"""
-		Plot archive behaviours and save them.
-		:param archive: Final archive list of dictionaries.
-	"""
+def plot_gen_cylinder_behaviors(gen_trajectories, grid, gen):
 	
-	for candidate in archive:
+	for trajectory in gen_trajectories:
+		x_coords, y_coords = trajectory
 		
-		## Run the most novel candidate to plot robot and cylinder trajectory
-		pucks, grid, c_xs, c_ys, total_dis_between_robots = run_once(candidate['genome'], print_stuff=True, view=False)
+		plt.plot(x_coords, y_coords)
+	
+	grid.plot_grid()
+	plt.title(f"Generation {gen} trajectories")
+	file_name = f"generation_{gen}_trajectories"
+	plt.savefig(f"{folder_path}/gen_trajectories/{file_name}")
+	plt.close()
 		
-		## Plot robot behaviour
-		plt.figure()
-		for robot_number in range(num_robots):
-			if robot_number == 0:
-				trajectory_color = 'blue'
-				robot_trajectory_number = f"Robot {robot_number+1}"
-			elif robot_number == 1:
-				trajectory_color = 'green'
-				robot_trajectory_number = f"Robot {robot_number+1}"
-			else:
-				trajectory_color = 'purple'
-				robot_trajectory_number = f"Robot {robot_number+1}"
-
-			## Plot robot trajectory
-			plt.plot(pucks[robot_number].xs, pucks[robot_number].ys, color=trajectory_color, linewidth=0.5, label=robot_trajectory_number)
-			## Add a square at the start of the trajectory
-			plt.plot(pucks[robot_number].xs[0], pucks[robot_number].ys[0], marker='s', markersize=5, color=trajectory_color, label='Start')
-			## Add a circle marker at the end of the line
-			plt.plot(pucks[robot_number].xs[-1], pucks[robot_number].ys[-1], marker='o', markersize=5, color=trajectory_color, label='End')
-			
-		## Cylinder trajectory
-		plt.plot(c_xs, c_ys, color='red', linewidth=0.5, label='Cylinder trajectory')
-		## Add a square at the start of the trajectory
-		plt.plot(c_xs[0], c_ys[0], marker='s', markersize=5, color='red', label='Start')
-		## Add a circle marker at the end of the line
-		plt.plot(c_xs[-1], c_ys[-1], marker='o', markersize=5, color='red', label='End')
-		## Plot grid
-		grid.plot_grid()
-		plt.title(f"Candidate behaviour ID {candidate['genome_id']}")
-		plt.legend(loc='upper right', fontsize='small')
-		file_name = f"candidate_behaviour_id_{candidate['genome_id']}"
-		plt.savefig(f"{folder_path}/{file_name}")
-		plt.close()
-		#~ plt.show()
-
-def save_novelty_archive(archive):
-	"""
-		Save novelty archive as text file.
-		:param archive: Final archive list of dictionaries.
-	"""
-	
-	## Convert sets to list for json serialization
-	for item in archive:
-		item['data'] = list(item['data'])
-	
-	filepath = folder_path + "/final_novelty_archive.json"
-	with open(filepath, 'w') as novelty_file:
-		json.dump(archive, novelty_file, indent=4)
-		#~ for item in archive:
-			#~ novelty_archive_file.write(f"Genome ID: {str(item['genome_id'])}, Genome: {', '.join(item['genome'])}, Data: {', '.join(item['data'])}, Novelty: {item['novelty']}\n")
-
 def main():
 	
 	## Create initial population
 	population = create_random_parameters_set(POPULATION_SIZE, GENOTYPE_SIZE, weights_bias_range)
 	#~ print(f"Initial population: {population}")
-	
-	## Run optimization
-	#~ fittest_params, fittest_fitness, average_fitness_over_time = run_optimization(population)
-	
-	## Run optimization with multiprocessing
-	#~ results = pool.map(run_optimization, population)
-	#~ print(f"Results: {results}")
-	
-	#~ p.close()
-	#~ p.join()
-	#~ p.terminate()
 	
 	## Run optimization
 	most_novel_genome, least_novel_genome, average_novelty_over_time, novelty_archive = run_optimization(population)
@@ -494,86 +575,29 @@ def main():
 	print(f"Least novel genome All Time: {least_novel_genome}")
 	print("---------------------------------------------")
 	print(f"Average novelty All Time: ", sum(average_novelty_over_time)/len(average_novelty_over_time))
-	print("---------------------------------------------")
-	squares_explored_most_novel = len(most_novel_genome["data"])
-	print(f"Explored squared by Most novel candidate: {squares_explored_most_novel}")
-	print("---------------------------------------------")
-	squares_explored_least_novel = len(least_novel_genome["data"])
-	print(f"Explored squared by LEAST novel candidate: {squares_explored_least_novel}")
-	print("---------------------------------------------")
-	print(f"Final novelty archive: {novelty_archive.archive}")
-	
-	#~ print("------------------------------------")
-	#~ print(f"Best Fitness Params All Time: {fittest_params}")
-	#~ print(f"Best Fitness Value All Time: {fittest_fitness}")
-	#~ print(f"Average Fitness Per generation All Time: {average_fitness_over_time}")
-	#~ print("Average Fitness All Time: ", sum(average_fitness_over_time)/len(average_fitness_over_time))
-	
 	
 	## Save the plot for the behaviours in the archive
-	plot_behaviours(novelty_archive.archive)
+	plot_archive_behaviours(novelty_archive.archive)
 	
-	## Save the final archive in .txt file
+	## Save the final archive in .json file
 	save_novelty_archive(novelty_archive.archive)
+	
+	#~ if best_genotype != None:
+		#~ ## Save the potential solution
+		#~ save_novelty_archive(best_genotype, file_name="best_solution.json")
+		
+		#~ ## Plot the potential solution
+		#~ plot_archive_behaviours(best_genotype)
 
 if __name__ == '__main__':
 	
 	main()
 	
-	#~ from multiprocessing import Pool
-	
-	## Create initial population
-	#~ population = create_random_parameters_set(POPULATION_SIZE, GENOTYPE_SIZE, weights_bias_range)
-	#~ print(f"Initial population: {population}")
-	
-	## Run optimization
-	#~ fittest_params, fittest_fitness, average_fitness_over_time = run_optimization(population)
-	
-	#~ pool = Pool(3)
-	
-	## Run optimization with multiprocessing
-	#~ results = pool.apply_async(run_optimization, population)
-	#~ print(f"Results: {dir(results)}")
-	
-	#~ pool.close()
-	#~ pool.join()
-	#~ pool.terminate()
-	
-	#~ ## Run optimization
-	#~ most_novel_genome, least_novel_genome, average_novelty_over_time, novelty_archive = run_optimization(population)
-	
-	#~ print("---------------------------------------------")
-	#~ print(f"Most novel genome All Time: {most_novel_genome}")
-	#~ print("---------------------------------------------")
-	#~ print(f"Least novel genome All Time: {least_novel_genome}")
-	#~ print("---------------------------------------------")
-	#~ print(f"Average novelty All Time: ", sum(average_novelty_over_time)/len(average_novelty_over_time))
-	#~ print("---------------------------------------------")
-	#~ squares_explored_most_novel = len(most_novel_genome["data"])
-	#~ print(f"Explored squared by Most novel candidate: {squares_explored_most_novel}")
-	#~ print("---------------------------------------------")
-	#~ squares_explored_least_novel = len(least_novel_genome["data"])
-	#~ print(f"Explored squared by LEAST novel candidate: {squares_explored_least_novel}")
-	#~ print("---------------------------------------------")
-	#~ print(f"Final novelty archive: {novelty_archive.archive}")
-	
-	#~ print("------------------------------------")
-	#~ print(f"Best Fitness Params All Time: {fittest_params}")
-	#~ print(f"Best Fitness Value All Time: {fittest_fitness}")
-	#~ print(f"Average Fitness Per generation All Time: {average_fitness_over_time}")
-	#~ print("Average Fitness All Time: ", sum(average_fitness_over_time)/len(average_fitness_over_time))
-	
-	
-	#~ ## Save the plot for the behaviours in the archive
-	#~ plot_behaviours(novelty_archive.archive)
-	
-	#~ ## Save the final archive in .txt file
-	#~ save_novelty_archive(novelty_archive.archive)
 
 
 #### Test Candidate ####
 ## Path to save robot behaviour
-#~ folder_json_path = './2_epuck_robots_behaviour_6'
+#~ folder_json_path = './2_epuck_CTRNN_robots_behaviour_2'
 ## Load Json data from file
 #~ def load_json(folder_name, file_name):
 	#~ path = f"{folder_name}/{file_name}"
@@ -584,19 +608,19 @@ if __name__ == '__main__':
 #~ def access_data(data, key):
 	#~ return data.get(key, "Key not found")
 	
-#~ folder_name = './2_epuck_robots_behaviour_6'
-#~ file_name = 'final_novelty_archive.json'
+#~ folder_name = './results/2_epuck_Forward_robots_behaviour_5'
+#~ file_name = 'best_solution.json'
 
 #~ json_data = load_json(folder_name, file_name)
-#~ desired_behaviour = 348
+#~ desired_behaviour = 3522
 #~ for candidate in json_data:
-	#~ print(f"{json_data[candidate]}")
 	#~ if candidate['genome_id'] == desired_behaviour:
 		#~ tested_genome = candidate['genome']
 		#~ break
 #~ print(f"{tested_genome}")
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(tested_genome, print_stuff=True, view=True)
 
-#~ params_test = [0] * 215
+#~ params_test = [0] * 280
+#~ params_test = [0] * GENOTYPE_SIZE
 #~ e, grid, c_xs, c_ys, total_dis_between_robots = run_once(params_test, print_stuff=True, view=True)
 #~ print(f"Max distance between robots: {total_dis_between_robots}")
