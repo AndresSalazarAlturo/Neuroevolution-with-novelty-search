@@ -7,7 +7,7 @@ BOUNDS = [0.01, 0.99]
 #~ BOUNDS = [-1, 1]
 range_factor = 0.3
 tournament_size = 2
-num_tournaments = 45
+num_tournaments = 60
 
 ## For testing
 #~ random.seed(27)
