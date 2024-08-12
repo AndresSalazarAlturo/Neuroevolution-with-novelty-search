@@ -92,16 +92,10 @@ def tournament_selection(pop_data):
 
     return winner, loser
 
-def population_reproduce(p,fitness, n_genes):
+def population_reproduce(p, pop_data, n_genes):
 
     pop_size = len(p)
     new_p = []
-
-    ## Create the population data
-    pop_data = [0] * pop_size
-    for cand in range(pop_size):
-        temp_dict = {"genome":p[cand], "fitness":fitness[cand]}
-        pop_data[cand] = temp_dict
 
     ## Tournament selection
     for _ in range(num_tournaments):
