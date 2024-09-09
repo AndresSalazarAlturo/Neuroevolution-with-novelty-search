@@ -50,6 +50,13 @@ class NoveltySearchArchive:
         """
         return sum(self.novelties)/len(self.novelties)
         
+    def get_best_fitness(self):
+        """
+            Get the best fitness in the archive.
+        """
+        best_fitness = min(self.archive, key=lambda x: x['fitness'])
+        return best_fitness
+        
     def sequence_matcher_distance(self, str1, str2):
 
         matcher = SequenceMatcher(None, str1, str2)

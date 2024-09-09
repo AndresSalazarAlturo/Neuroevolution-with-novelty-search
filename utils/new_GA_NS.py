@@ -7,7 +7,7 @@ BOUNDS = [0.01, 0.99]
 #~ BOUNDS = [-1, 1]
 range_factor = 0.3
 tournament_size = 2
-num_tournaments = 45
+num_tournaments = 60
 
 ## For testing
 #~ random.seed(27)
@@ -108,17 +108,26 @@ def population_reproduce_novelty(novelty_archive, p, pop_size, n_genes):
 
         winner = tournament_selection(novelty_archive)
         new_p.append(winner['genome'])
+        
+    ## Testing reproduce from the novelty archive
+    p = [genome["genome"] for genome in novelty_archive]
 
     for i in range(pop_size-num_tournaments):
 		
-        mom = p[random.randint(0, pop_size - 1)]
-        dad = p[random.randint(0, pop_size - 1)]
+        #~ mom = p[random.randint(0, pop_size - 1)]
+        #~ dad = p[random.randint(0, pop_size - 1)]
+        
+        mom = p[random.randint(0, len(novelty_archive) - 1)]
+        dad = p[random.randint(0, len(novelty_archive) - 1)]
         
         ## Check that mom and dad are not the same individual
         if mom == dad:
             while mom == dad:
-                mom = p[random.randint(0, pop_size - 1)]
-                dad = p[random.randint(0, pop_size - 1)]
+                #~ mom = p[random.randint(0, pop_size - 1)]
+                #~ dad = p[random.randint(0, pop_size - 1)]
+                
+                mom = p[random.randint(0, len(novelty_archive) - 1)]
+                dad = p[random.randint(0, len(novelty_archive) - 1)]
 
         child = crossover(mom, dad)
         child = mutate(child, n_genes)
@@ -171,7 +180,71 @@ def mutate(child, n_genes):
     for gene_no in range(n_genes):
         if np.random.rand() < MUTATION_PROBABILITY:
             child[gene_no] = random_number_close_range(child[gene_no], range_factor, BOUNDS)
-            
-    #~ print(f"I am mutating")
 
     return child
+    
+def import_json(file_final_novelty_archive, file_path_best_solution = None):
+    """
+        Import json files. Best solution and novelty archive as list of lists
+        with the genomes to create the new initial population.
+    """
+    if file_path_best_solution != None:
+        
+        with open(file_path_best_solution, 'r') as file:
+            best_solution_data = json.load(file)
+            
+        with open(file_final_novelty_archive, 'r') as file:
+            novelty_archive_data = json.load(file)
+            
+        archive_genomes = [genome['genome'] for genome in novelty_archive_data]
+        best_solution_genomes = [genome['genome'] for genome in best_solution_data]
+        
+        return archive_genomes, best_solution_genomes
+        
+def initial_pop_from_archive(archive_genomes, pop_size, n_genes, best_solution_genomes = None):
+    """
+        Create the initial population for the next environment based on the best solution and
+        novelty archive.
+        :param archive_genomes: List wih the genomes in the archive.
+        :param pop_size: Population size.
+        :param n_genes: Number of genes in genotype.
+        :param best_solution_genomes: The best solution in the previous simulation.
+        :return new_pop: New population genotypes.
+    """
+
+    new_p = []
+
+    if best_solution_genomes != None:
+        ## Add the best solution to the new pop
+        new_p.append(best_solution_genomes)
+
+        for _ in range(pop_size - 1):
+            mom = archive_genomes[random.randint(0, len(archive_genomes) - 1)]
+            dad = archive_genomes[random.randint(0, len(archive_genomes) - 1)]
+
+            ## Check that mom and dad are not the same individual
+            if mom == dad:
+                while mom == dad:
+                    mom = archive_genomes[random.randint(0, len(archive_genomes) - 1)]
+                    dad = archive_genomes[random.randint(0, len(archive_genomes) - 1)]
+            child = crossover(mom, dad)
+            child = mutate(child, n_genes)
+            new_p.append(child)
+
+        return new_p
+
+    else:
+        for _ in range(pop_size):
+            mom = archive_genomes[random.randint(0, len(archive_genomes) - 1)]
+            dad = archive_genomes[random.randint(0, len(archive_genomes) - 1)]
+
+            ## Check that mom and dad are not the same individual
+            if mom == dad:
+                while mom == dad:
+                    mom = archive_genomes[random.randint(0, len(archive_genomes) - 1)]
+                    dad = archive_genomes[random.randint(0, len(archive_genomes) - 1)]
+            child = crossover(mom, dad)
+            child = mutate(child, n_genes)
+            new_p.append(child)
+
+        return new_p
