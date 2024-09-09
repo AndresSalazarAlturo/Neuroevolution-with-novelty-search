@@ -13,17 +13,18 @@ from novelty_archive import *
 from multi_layer_Forward_nn_controller import *
 
 ## World's objects positions
-## 80, 50
-## 100, 140
 ## Desire final position for cylinder = 170, 175; 180, 180
 
 ## Easier map set up
 desired_cylinder_pos = [180, 180]
 initial_cylinder_pos = [100, 80]
-#~ initial_cylinder_pos = [30, 30]
+initial_cylinder_pos = [130, 80]
+initial_cylinder_pos = [130, 30]
+initial_cylinder_pos = [100, 50]
 rectangle_big_horizontal_pos = [180, 130]
 rectangle_vertical_pos = [30, 130]
 small_vertical_pos = [65,170]
+vertical_big_wall = [65, 50]
 funnel_1 = [160, 40]
 funnel_2 = [40, 40]
 
@@ -45,9 +46,9 @@ genotype_size = (inputs_size * num_nn_neurons[0]) + (num_nn_neurons[0] * num_nn_
                 num_nn_neurons[0] + num_nn_neurons[1] + num_nn_neurons[2] + num_nn_neurons[3]
 
 ## GA parameters
-num_gens = 90
+num_gens = 80
 ## 200 in Gomes - pop size
-POPULATION_SIZE = 130
+POPULATION_SIZE = 100
 GENOTYPE_SIZE = genotype_size
 ## Weights, bias bounds
 #~ weights_bias_range = np.arange(-5, 5, 0.5)
@@ -58,8 +59,8 @@ archive_size = 100
 dist_metric = 'cylinder_only'
 
 ## Path to save robot behaviour
-folder_path = './results/2_epuck_Forward_robots_behaviour_7'
-## _90Gens_130PopSize_100Archive_CylinderPosXY_EasyMap_Bounded
+folder_path = './results/2_epuck_Forward_robots_behaviour_34'
+## _80Gens_100PopSize_100Archive_CylinderPosXY_HardMap_Bounded
 
 class MyEPuck(pyenki.EPuck):
 	
@@ -218,6 +219,18 @@ def save_novelty_archive(archive, file_name="final_novelty_archive.json"):
 	filepath = folder_path + f"/{file_name}"
 	with open(filepath, 'w') as novelty_file:
 		json.dump(archive, novelty_file, indent=4)
+		
+def plot_fitnes_over_time(fitness_overtime):
+	"""
+		Plot and save fitness overtime
+		:param fitness_over_time: Best fitness per generation
+	"""
+	plt.plot(fitness_overtime, marker='o')
+	plt.title('fitness overtime')
+	
+	file_name = "Fitness overtime"
+	plt.savefig(f"{folder_path}/{file_name}")
+	plt.close()
 
 def euclidean_distance(x1, y1, x2, y2):
 	"""
@@ -247,7 +260,7 @@ def run_once(genome, print_stuff=False, view=False):
 	##############################
 
 	#~ # create a rectangular object and add to world - Big horizontal one
-	#~ r_1 = pyenki.RectangularObject(130, 10, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	#~ r_1 = pyenki.RectangularObject(130, 10, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
 	#~ r_1.pos = (rectangle_big_horizontal_pos[0], rectangle_big_horizontal_pos[1])
 	#~ ## 0.785
 	#~ r_1.angle = 0
@@ -255,7 +268,7 @@ def run_once(genome, print_stuff=False, view=False):
 	#~ w.addObject(r_1)
 	
 	#~ # create a rectangular object and add to world - Vertical one
-	#~ r_2 = pyenki.RectangularObject(10, 80, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	#~ r_2 = pyenki.RectangularObject(10, 80, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
 	#~ r_2.pos = (rectangle_vertical_pos[0], rectangle_vertical_pos[1])
 	#~ ## 0.785
 	#~ r_2.angle = 0
@@ -263,7 +276,7 @@ def run_once(genome, print_stuff=False, view=False):
 	#~ w.addObject(r_2)
 	
 	#~ # create a rectangular object and add to world - Small horizontal one
-	#~ r_3 = pyenki.RectangularObject(10, 50, 5, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	#~ r_3 = pyenki.RectangularObject(10, 50, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
 	#~ r_3.pos = (rectangle_small_horizontal_pos[0], rectangle_small_horizontal_pos[1])
 	#~ ## 0.785
 	#~ r_3.angle = 1.6
@@ -303,6 +316,14 @@ def run_once(genome, print_stuff=False, view=False):
 	r_s.angle = 0
 	r_s.collisionElasticity = 0
 	w.addObject(r_s)
+	
+	#~ # create a rectangular object and add to world - Vertical 2
+	#~ r_3 = pyenki.RectangularObject(10, 125, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
+	#~ r_3.pos = (vertical_big_wall[0], vertical_big_wall[1])
+	#~ ## 0.785
+	#~ r_3.angle = 0
+	#~ r_3.collisionElasticity = 0
+	#~ w.addObject(r_3)
 
 	## Create funnel 1
 	f_1 = pyenki.RectangularObject(10, 140, 15, 10000000, pyenki.Color(0, 0, 0, 1)) # l1, l2, height, mass colour
@@ -334,6 +355,10 @@ def run_once(genome, print_stuff=False, view=False):
 	
 	##Epucks pos
 	epucks_pos = [(60, 10), (140, 10)]
+	##Epucks pos for medium map
+	#~ epucks_pos = [(80, 10), (180, 10)]
+	##Epucks pos for medium-hard map
+	#~ epucks_pos = [(40, 10), (160, 10)]
 	
 	for n in range(num_robots):
 		## Create an instance of e-puck class
@@ -360,7 +385,7 @@ def run_once(genome, print_stuff=False, view=False):
 	if view:
 		w.runInViewer((100, -60), 100, 0, -0.7, 3)
 	else:
-		for i in range(1200): ##1000
+		for i in range(1000): ##1200
 			w.step(0.1, 3)
 			
 			if print_stuff:
@@ -400,9 +425,12 @@ def run_optimization(population):
 	## Create novelty search archive instance
 	archive = NoveltySearchArchive(archive_size, dist_metric)
 	
+	## Fitness over time
+	fitness_over_time = []
+	
 	## Run GA for a fixed number of generations
 	for gen in range(num_gens):
-		#~ population_fitness = []
+
 		population_novelty = []
 		
 		## Save generation trajectories
@@ -414,8 +442,6 @@ def run_optimization(population):
 
 			## Get genotype from population
 			genotype = population[ind]
-
-			#~ print(f"Run optimization, genotype sent: {genotype}")
 
 			##Evaluate genotype
 			pucks, grid, c_xs, c_ys, total_dis_between_robots = run_once(genotype, print_stuff=True, view=False)
@@ -530,6 +556,11 @@ def run_optimization(population):
 		## Store average novelty over generations
 		average_novelty_over_time.append(avg_novelty_archive)
 		
+		## Get the highest fitness value
+		best_fitness_genome = archive.get_best_fitness()
+		best_fitness_value = best_fitness_genome['fitness']
+		fitness_over_time.append(best_fitness_value)
+		
 		if found:
 			break
 		
@@ -542,10 +573,10 @@ def run_optimization(population):
 			
 	## Get the most novel and least novel behaviour
 	most_novel_genome = archive.get_most_novel()
-	least_novel_genome = archive.get_least_novel()
+	least_novel_genome = archive.get_least_novel()	
 
 	#~ return best_fitness, best_fitness_val, average_fitness_over_time	
-	return most_novel_genome, least_novel_genome, average_novelty_over_time, archive
+	return most_novel_genome, least_novel_genome, average_novelty_over_time, archive, fitness_over_time
 
 def plot_gen_cylinder_behaviors(gen_trajectories, grid, gen):
 	
@@ -559,15 +590,33 @@ def plot_gen_cylinder_behaviors(gen_trajectories, grid, gen):
 	file_name = f"generation_{gen}_trajectories"
 	plt.savefig(f"{folder_path}/gen_trajectories/{file_name}")
 	plt.close()
-		
+
 def main():
+	
+	#################################################################
+	######### Initial population from previous environments #########
+	#################################################################
+
+	#~ ## File paths to previous archive solutions
+	#~ file_path_best_solution = './results/2_epuck_Forward_robots_behaviour_20/best_solution.json'
+	#~ file_final_novelty_archive = './results/2_epuck_Forward_robots_behaviour_20/final_novelty_archive.json'
+	
+	#~ ## Load JSON data
+	#~ best_solution_list, novelty_archive_list = import_json(file_final_novelty_archive, file_path_best_solution)
+	
+	#~ ## Create initial population from previous environments
+	#~ population = initial_pop_from_archive(novelty_archive_list, POPULATION_SIZE, GENOTYPE_SIZE, best_solution_list)
+
+	#############################################
+	######### Random initial population #########
+	#############################################
 	
 	## Create initial population
 	population = create_random_parameters_set(POPULATION_SIZE, GENOTYPE_SIZE, weights_bias_range)
 	#~ print(f"Initial population: {population}")
 	
 	## Run optimization
-	most_novel_genome, least_novel_genome, average_novelty_over_time, novelty_archive = run_optimization(population)
+	most_novel_genome, least_novel_genome, average_novelty_over_time, novelty_archive, fitness_over_time = run_optimization(population)
 	
 	print("---------------------------------------------")
 	print(f"Most novel genome All Time: {most_novel_genome}")
@@ -582,18 +631,12 @@ def main():
 	## Save the final archive in .json file
 	save_novelty_archive(novelty_archive.archive)
 	
-	#~ if best_genotype != None:
-		#~ ## Save the potential solution
-		#~ save_novelty_archive(best_genotype, file_name="best_solution.json")
-		
-		#~ ## Plot the potential solution
-		#~ plot_archive_behaviours(best_genotype)
+	## Save fitness overtime plot
+	plot_fitnes_over_time(fitness_over_time)
 
 if __name__ == '__main__':
 	
 	main()
-	
-
 
 #### Test Candidate ####
 ## Path to save robot behaviour
